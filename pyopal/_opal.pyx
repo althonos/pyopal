@@ -23,6 +23,15 @@ cimport opal
 cimport opal.score_matrix
 from opal cimport OpalSearchResult
 
+IF NEON_BUILD_SUPPORT:
+    from pyopal._opal_neon cimport opalSearchDatabaseNEON
+IF SSE2_BUILD_SUPPORT:
+    from pyopal._opal_sse2 cimport opalSearchDatabaseSSE2
+IF SSE4_BUILD_SUPPORT:
+    from pyopal._opal_sse4 cimport opalSearchDatabaseSSE4
+IF AVX2_BUILD_SUPPORT:
+    from pyopal._opal_avx2 cimport opalSearchDatabaseAVX2
+
 cdef extern from "<cctype>" namespace "std" nogil:
     cdef int toupper(int ch)
     cdef int tolower(int ch)
@@ -58,32 +67,11 @@ ELIF TARGET_CPU == "aarch64":
     _NEON_BUILD_SUPPORT   = NEON_BUILD_SUPPORT
     _NEON_RUNTIME_SUPPORT = NEON_BUILD_SUPPORT # always runtime support on Aarch64
 
-if _SSE2_RUNTIME_SUPPORT:
-    _BEST_BACKEND = simd_backend.SSE2
-elif _NEON_RUNTIME_SUPPORT:
-    _BEST_BACKEND = simd_backend.NEON
-else:
-    _BEST_BACKEND = simd_backend.GENERIC
 
-cdef enum simd_backend:
-    NONE
-    GENERIC
-    SSE2
-    SSE4
-    AVX2
-    NEON
+# --- Type definitions ---------------------------------------------------------
 
-IF NEON_BUILD_SUPPORT:
-    from pyopal._opal_neon cimport opalSearchDatabaseNEON
-IF SSE2_BUILD_SUPPORT:
-    from pyopal._opal_sse2 cimport opalSearchDatabaseSSE2
-IF SSE4_BUILD_SUPPORT:
-    from pyopal._opal_sse4 cimport opalSearchDatabaseSSE4
-IF AVX2_BUILD_SUPPORT:
-    from pyopal._opal_avx2 cimport opalSearchDatabaseAVX2
-
-
-ctypedef unsigned char uchar
+ctypedef unsigned char digit_t
+ctypedef digit_t*      seq_t
 
 ctypedef int (*searchfn_t)(
     unsigned char*,
@@ -102,6 +90,42 @@ ctypedef int (*searchfn_t)(
 ) nogil
 
 
+# --- Sequence encoding --------------------------------------------------------
+
+ctypedef fused bytelike:
+    str
+    object
+
+cdef inline void encode(bytelike sequence, char* lut, seq_t* encoded, int* length) except *:
+
+    cdef size_t                 i
+    cdef char                   code
+    cdef unsigned char          letter
+    cdef const unsigned char[:] view
+
+    if bytelike is str:
+        raise NotImplementedError("Encoding from string not yet implemented")
+
+    else:
+
+        view       = sequence
+        length[0]  = view.shape[0]
+        encoded[0] = <seq_t> PyMem_Malloc(length[0] * sizeof(digit_t))
+        if encoded[0] is NULL:
+            raise MemoryError("Failed to allocate sequence data")
+
+        for i in range(length[0]):
+            letter = <unsigned char> view[i]
+            code = lut[letter]
+            if code < 0:
+                raise ValueError(f"Invalid character in sequence: {chr(letter)}")
+            encoded[0][i] = code
+
+    print("encoded:", [encoded[0][i] for i in range(length[0])])
+
+
+# --- Python classes -----------------------------------------------------------
+
 cdef class ScoreMatrix:
     """A score matrix for comparing character matches in sequences.
     """
@@ -115,13 +139,19 @@ cdef class ScoreMatrix:
         Create a default amino-acid scoring matrix (BLOSUM50).
 
         """
-        cdef size_t i
-        cdef char   letter
+        cdef size_t               i
+        cdef unsigned char        letter
+        cdef const unsigned char* alphabet
 
         cdef ScoreMatrix matrix = ScoreMatrix.__new__(ScoreMatrix)
         matrix._mx = opal.score_matrix.ScoreMatrix.getBlosum50()
 
-        for i, letter in enumerate(matrix._mx.getAlphabet()):
+        alphabet = matrix._mx.getAlphabet()
+
+        for i in range(UCHAR_MAX):
+            matrix._ahash[i] = -1
+        for i in range(matrix._mx.getAlphabetLength()):
+            letter = alphabet[i]
             matrix._ahash[toupper(letter)] = matrix._ahash[tolower(letter)] = i
 
         return matrix
@@ -261,69 +291,91 @@ cdef class SearchResult:
 
 cdef class Database:
     """A database of target sequences.
+
+    Like many biological sequence analysis tools, Opal encodes sequences
+    with an alphabet for faster indexing of matrices. Sequences inserted in
+    a  database are stored in encoded format using the alphabet of the
+    `ScoreMatrix` given on instantiation.
+
     """
 
-    # cdef          size_t          _size
-    # cdef          unsigned char** _targets
-    # cdef          int*            _lengths
-    cdef readonly tuple           sequences
+    cdef readonly ScoreMatrix   score_matrix
+    cdef          vector[seq_t] _sequences
+    cdef          vector[int]   _lengths
+
+    # --- Magic methods --------------------------------------------------------
 
     def __cinit__(self):
-        self.sequences = tuple()
-        # self._size      = 0
-        # self._targets   = NULL
-        # self._lengths   = NULL
+        self._sequences = vector[seq_t]()
+        self._lengths   = vector[int]()
 
-    def __init__(self, *sequences):
-        cdef size_t i
-        cdef bytes  sequence
-
-        self.sequences = tuple(sequences)
-        # self._size     = len(self.sequences)
-        # self._lengths  = <int*> PyMem_Malloc(self._size * sizeof(int))
-        # self._targets  = <unsigned char**> PyMem_Malloc(self._size * sizeof(unsigned char*))
-        #
-        # if self._lengths is NULL or self._targets is NULL:
-        #     raise MemoryError("Allocation failed")
-        #
-        # for i, sequence in enumerate(self.sequences):
-        #     self._lengths[i] = len(sequence)
-        #     self._targets[i] = <unsigned char*> PyBytes_AsString(sequence)
+    def __init__(self, object sequences=(), ScoreMatrix score_matrix=None):
+        # reset the collection is `__init__` is called more than once
+        self.clear()
+        # record the score matrix
+        self.score_matrix = score_matrix or ScoreMatrix.aa()
+        # add the sequences to the database
+        self.extend(sequences)
 
     def __dealloc__(self):
-        pass
-        # PyMem_Free(self._targets)
-        # PyMem_Free(self._lengths)
+        cdef size_t i
+        for i in range(self._sequences.size()):
+            PyMem_Free(self._sequences[i])
 
-    def search(self, bytes sequence, *, int gap_open = 3, int gap_extend = 1):
+
+    # --- Sequence interface ---------------------------------------------------
+
+    def __len__(self):
+        return self._sequences.size()
+
+    cpdef void clear(self) except *:
+        """clear(self)\n--
+
+        Remove all sequences from the database.
+
+        """
+        cdef size_t i
+        for i in range(self._sequences.size()):
+            PyMem_Free(self._sequences[i])
+        self._sequences.clear()
+        self._lengths.clear()
+
+    cpdef void extend(self, object sequences) except *:
+        """extend(self, sequences)\n--
+
+        Extend the database by adding sequences from an iterable.
+
+        """
+        for sequence in sequences:
+            self.append(sequence)
+
+    cpdef void append(self, bytelike sequence) except *:
+        """append(self, sequence)\n--
+
+        Append a single sequence at the end of the database.
+
+        """
+        cdef int   length
+        cdef seq_t encoded
+
+        encode(sequence, self.score_matrix._ahash, &encoded, &length)
+
+        self._sequences.push_back(encoded)
+        self._lengths.push_back(length)
+
+    # --- Opal search ----------------------------------------------------------
+
+    def search(self, bytelike sequence, *, int gap_open = 3, int gap_extend = 1):
         cdef size_t          i
-        cdef bytes           seq
         cdef int             retcode
+        cdef int             length
+        cdef size_t          size     = self._sequences.size()
+        cdef seq_t           query    = NULL
         cdef searchfn_t      searchfn = NULL
         cdef SearchResults   results  = SearchResults.__new__(SearchResults)
-        cdef ScoreMatrix     matrix   = ScoreMatrix.getBlosum50()
-
-        # create encoding index
-        cdef char            idx[255]
-        memset(idx, 0, 255*sizeof(char))
-        for i, letter in enumerate(matrix.getAlphabet()):
-            idx[toupper(letter)] = idx[tolower(letter)] = i
-
-        # prepare database
-        cdef size_t          size    = len(self.sequences)
-        cdef unsigned char** targets = <unsigned char**> PyMem_Malloc(len(self.sequences) * sizeof(unsigned char*))
-        cdef int*            lengths = <int*> PyMem_Malloc(len(self.sequences) * sizeof(int))
-        for i, seq in enumerate(self.sequences):
-            lengths[i] = len(seq)
-            targets[i] = <unsigned char*> PyMem_Malloc(len(seq)*sizeof(char))
-            for j in range(len(seq)):
-                targets[i][j] = idx[seq[j]]
 
         # Prepare query
-        cdef size_t         length   = len(sequence)
-        cdef unsigned char* query    = <unsigned char*> PyMem_Malloc(length*sizeof(char))
-        for j in range(len(sequence)):
-            query[j] = idx[sequence[j]]
+        encode(sequence, self.score_matrix._ahash, &query, &length)
 
         # Prepare array of results
         results._size    = size
@@ -332,6 +384,7 @@ cdef class Database:
             results._results[i] = <OpalSearchResult*> PyMem_Malloc(sizeof(OpalSearchResult))
             opal.opalInitSearchResult(results._results[i])
 
+        # Select best available SIMD backend
         IF AVX2_BUILD_SUPPORT:
             if _AVX2_RUNTIME_SUPPORT and searchfn is NULL:
                 searchfn = opalSearchDatabaseAVX2
@@ -341,28 +394,38 @@ cdef class Database:
         IF SSE2_BUILD_SUPPORT:
             if _SSE2_RUNTIME_SUPPORT and searchfn is NULL:
                 searchfn = opalSearchDatabaseSSE2
-
         if searchfn is NULL:
             raise RuntimeError("No supported SIMD backend available")
 
+        # Run search pipeline in nogil mode
         with nogil:
             retcode = searchfn(
                 query,
                 length,
-                targets,
-                size,
-                lengths,
+                self._sequences.data(),
+                self._sequences.size(),
+                self._lengths.data(),
                 gap_open,
                 gap_extend,
-                matrix._mx.getMatrix(),
-                matrix._mx.getAlphabetLength(),
+                self.score_matrix._mx.getMatrix(),
+                self.score_matrix._mx.getAlphabetLength(),
                 results._results,
                 opal.OPAL_SEARCH_ALIGNMENT,
                 opal.OPAL_MODE_SW,
                 opal.OPAL_OVERFLOW_BUCKETS,
             )
 
+        # free allocated memory
+        PyMem_Free(query)
+
+        # return results or raise an exception on failure
         if retcode != 0:
             raise RuntimeError(f"Failed to run search Opal database (code={retcode})")
-
         return results
+
+
+
+
+
+
+
