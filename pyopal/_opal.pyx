@@ -333,6 +333,26 @@ cdef class Database:
     def __len__(self):
         return self._sequences.size()
 
+    def __getitem__(self, ssize_t index):
+        cdef size_t         i
+        cdef bytearray      decoded
+        cdef seq_t          encoded
+        cdef ssize_t        index_   = index
+        cdef size_t         size     = self._sequences.size()
+        cdef unsigned char* alphabet = self.score_matrix._mx.getAlphabet()
+
+        if index_ < 0:
+            index_ += size
+        if index_ < 0 or (<size_t> index_) >= size:
+            raise IndexError(index)
+
+        encoded = self._sequences[index_]
+        decoded = bytearray(self._lengths[index_])
+        for i in range(self._lengths[index_]):
+            decoded[i] = alphabet[encoded[i]]
+
+        return decoded.decode("ascii")
+
     cpdef void clear(self) except *:
         """clear(self)\n--
 
