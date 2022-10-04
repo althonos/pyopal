@@ -676,7 +676,6 @@ setuptools.setup(
             language="c++",
             requires="NEON",
             sources=[
-                os.path.join("vendor", "opal", "src", "ScoreMatrix.cpp"),
                 os.path.join("vendor", "opal", "src", "opal.cpp"),
                 os.path.join("pyopal", "_opal_neon.pyx"),
             ],
@@ -691,7 +690,6 @@ setuptools.setup(
             language="c++",
             requires="SSE2",
             sources=[
-                os.path.join("vendor", "opal", "src", "ScoreMatrix.cpp"),
                 os.path.join("vendor", "opal", "src", "opal.cpp"),
                 os.path.join("pyopal", "_opal_sse2.pyx"),
             ],
@@ -706,7 +704,6 @@ setuptools.setup(
             language="c++",
             requires="SSE4",
             sources=[
-                os.path.join("vendor", "opal", "src", "ScoreMatrix.cpp"),
                 os.path.join("vendor", "opal", "src", "opal.cpp"),
                 os.path.join("pyopal", "_opal_sse4.pyx"),
             ],
@@ -721,7 +718,6 @@ setuptools.setup(
             language="c++",
             requires="AVX2",
             sources=[
-                os.path.join("vendor", "opal", "src", "ScoreMatrix.cpp"),
                 os.path.join("vendor", "opal", "src", "opal.cpp"),
                 os.path.join("pyopal", "_opal_avx2.pyx"),
             ],
@@ -735,6 +731,8 @@ setuptools.setup(
             "pyopal._opal",
             language="c++",
             sources=[
+                os.path.join("vendor", "opal", "src", "ScoreMatrix.cpp"),
+                os.path.join("vendor", "opal", "src", "opal.cpp"),
                 os.path.join("pyopal", "_opal.pyx"),
             ],
             extra_compile_args=[],
