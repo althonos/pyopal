@@ -37,6 +37,11 @@ cdef extern from "<cctype>" namespace "std" nogil:
     cdef int tolower(int ch)
 
 
+# --- Python imports -----------------------------------------------------------
+
+import operator
+
+
 # --- Runtime CPU detection ----------------------------------------------------
 
 _TARGET_CPU           = TARGET_CPU
@@ -346,6 +351,14 @@ cdef class Database:
         Extend the database by adding sequences from an iterable.
 
         """
+        # attempt to reserve space in advance for the new sequences
+        cdef size_t hint = operator.length_hint(sequences)
+        cdef size_t size = self._sequences.size()
+        if hint > 0:
+            self._sequences.reserve(hint + size)
+            self._lengths.reserve(hint + size)
+
+        # append sequences sequentially
         for sequence in sequences:
             self.append(sequence)
 
@@ -362,6 +375,7 @@ cdef class Database:
 
         self._sequences.push_back(encoded)
         self._lengths.push_back(length)
+
 
     # --- Opal search ----------------------------------------------------------
 
