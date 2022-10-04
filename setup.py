@@ -734,7 +734,6 @@ setuptools.setup(
         Extension(
             "pyopal._opal",
             language="c++",
-            requires="NEON",
             sources=[
                 os.path.join("pyopal", "_opal.pyx"),
             ],
