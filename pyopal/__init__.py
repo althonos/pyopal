@@ -9,6 +9,7 @@ from ._opal import (
     Database,
     SearchResults,
     SearchResult,
+    ScoreMatrix,
 )
 
 # Small addition to the docstring: we want to show a link redirecting to the

@@ -3,9 +3,9 @@
 """Bindings to Opal, a SIMD-accelerated pairwise sequence aligner.
 
 References:
-    - Korpar M., Šošić M., Blažeka D., Šikić M. 
-      *SW#db: GPU-Accelerated Exact Sequence Similarity Database Search*. 
-      PLoS One. 2015;10(12):e0145857. Published 2015 Dec 31. 
+    - Korpar M., Šošić M., Blažeka D., Šikić M.
+      *SW#db: GPU-Accelerated Exact Sequence Similarity Database Search*.
+      PLoS One. 2015;10(12):e0145857. Published 2015 Dec 31.
       :doi:`10.1371/journal.pone.0145857`.
 
 """
@@ -16,10 +16,12 @@ from cpython.bytes cimport PyBytes_AsString, PyBytes_FromStringAndSize
 from cpython.mem cimport PyMem_Malloc, PyMem_Realloc, PyMem_Free
 
 from libc.string cimport memset
+from libc.limits cimport UCHAR_MAX
+from libcpp.vector cimport vector
 
 cimport opal
+cimport opal.score_matrix
 from opal cimport OpalSearchResult
-from opal.score_matrix cimport ScoreMatrix
 
 cdef extern from "<cctype>" namespace "std" nogil:
     cdef int toupper(int ch)
@@ -71,6 +73,8 @@ cdef enum simd_backend:
     AVX2
     NEON
 
+IF NEON_BUILD_SUPPORT:
+    from pyopal._opal_neon cimport opalSearchDatabaseNEON
 IF SSE2_BUILD_SUPPORT:
     from pyopal._opal_sse2 cimport opalSearchDatabaseSSE2
 IF SSE4_BUILD_SUPPORT:
@@ -78,6 +82,8 @@ IF SSE4_BUILD_SUPPORT:
 IF AVX2_BUILD_SUPPORT:
     from pyopal._opal_avx2 cimport opalSearchDatabaseAVX2
 
+
+ctypedef unsigned char uchar
 
 ctypedef int (*searchfn_t)(
     unsigned char*,
@@ -88,12 +94,105 @@ ctypedef int (*searchfn_t)(
     int,
     int,
     int*,
-    int, 
+    int,
     OpalSearchResult**,
     const int,
     int,
     int,
 ) nogil
+
+
+cdef class ScoreMatrix:
+    """A score matrix for comparing character matches in sequences.
+    """
+    cdef opal.score_matrix.ScoreMatrix _mx
+    cdef char                          _ahash[UCHAR_MAX]
+
+    @classmethod
+    def aa(cls):
+        """aa(cls)\n--
+
+        Create a default amino-acid scoring matrix (BLOSUM50).
+
+        """
+        cdef size_t i
+        cdef char   letter
+
+        cdef ScoreMatrix matrix = ScoreMatrix.__new__(ScoreMatrix)
+        matrix._mx = opal.score_matrix.ScoreMatrix.getBlosum50()
+
+        for i, letter in enumerate(matrix._mx.getAlphabet()):
+            matrix._ahash[toupper(letter)] = matrix._ahash[tolower(letter)] = i
+
+        return matrix
+
+    def __cinit__(self):
+        memset(self._ahash, 0xFF, UCHAR_MAX*sizeof(char))
+
+    def __init__(self, str alphabet not None, object matrix not None):
+        """__init__(alphabet, matrix)\n--
+
+        Create a new score matrix from the given alphabet and scores.
+
+        Arguments:
+            alphabet (`str`): The alphabet of the similarity matrix.
+            matrix (`~numpy.typing.ArrayLike` of `int`): The scoring matrix,
+                as a square matrix indexed by the alphabet characters.
+
+        Example:
+            Create a new similarity matrix using the HOXD70 scores by
+            Chiaromonte, Yap and Miller (:pmid:`11928468`)::
+
+                >>> matrix = ScoreMatrix(
+                ...     "ATCG",
+                ...     [[  91, -114,  -31, -123],
+                ...      [-114,  100, -125,  -31],
+                ...      [ -31, -125,  100, -114],
+                ...      [-123,  -31, -114,   91]]
+                ... )
+
+            Create a new similarity matrix using one of the matrices from
+            the `Bio.Align.substitution_matrices` module::
+
+                >>> jones = Bio.Align.substitution_matrices.load('JONES')
+                >>> matrix = ScoreMatrix(jones.alphabet, jones)
+
+        """
+        cdef int           i
+        cdef int           j
+        cdef object        row
+        cdef int           value
+        cdef str           letter
+        cdef int           length    = len(matrix)
+        cdef vector[uchar] abcvector = vector[uchar](length, 0)
+        cdef vector[int]   scores    = vector[int](length*length, 0)
+
+        if len(set(alphabet)) != len(alphabet):
+            raise ValueError("Alphabet contains duplicate letters")
+        if len(alphabet) != length:
+            raise ValueError("Alphabet must have the same length as matrix")
+        if not alphabet.isupper():
+            raise ValueError("Alphabet must only contain uppercase letters")
+        if not all(len(row) == length for row in matrix):
+            raise ValueError("`matrix` must be a square matrix")
+
+        # FIXME: may be required implicitly by SIMD implementations
+        # if length > 32:
+        #     raise ValueError(f"Cannot use alphabet of more than 32 symbols: {alphabet!r}")
+
+        # copy the alphabet and create a lookup-table for encoding sequences
+        for i, letter in enumerate(alphabet):
+            j = ord(letter)
+            abcvector[i] = j
+            self._ahash[toupper(j)] = self._ahash[tolower(j)] = i
+
+        # copy the scores
+        for i, row in enumerate(matrix):
+            for j, value in enumerate(row):
+                scores[i*length+j] = value
+
+        # record the matrix
+        self._mx = opal.score_matrix.ScoreMatrix(abcvector, scores)
 
 
 cdef class SearchResults:
@@ -116,7 +215,7 @@ cdef class SearchResults:
             index_ += self._size
         if index_ < 0 or index_ >= self._size:
             raise IndexError(index)
-        
+
         cdef SearchResult result = SearchResult.__new__(SearchResult)
         result._result = self._results[index_]
         result._owner  = self
@@ -146,7 +245,7 @@ cdef class SearchResult:
     def target_start(self):
         assert self._result is not NULL
         return None if self._result.startLocationTarget == -1 else self._result.startLocationTarget
-        
+
     @property
     def target_end(self):
         assert self._result is not NULL
@@ -178,7 +277,7 @@ cdef class Database:
     def __init__(self, *sequences):
         cdef size_t i
         cdef bytes  sequence
-        
+
         self.sequences = tuple(sequences)
         # self._size     = len(self.sequences)
         # self._lengths  = <int*> PyMem_Malloc(self._size * sizeof(int))
@@ -233,19 +332,19 @@ cdef class Database:
             results._results[i] = <OpalSearchResult*> PyMem_Malloc(sizeof(OpalSearchResult))
             opal.opalInitSearchResult(results._results[i])
 
-        #if _AVX2_RUNTIME_SUPPORT:
-        #    searchfn = opalSearchDatabaseAVX2
-        #elif _SSE4_RUNTIME_SUPPORT:
-        #    searchfn = opalSearchDatabaseSSE4
-        #elif _SSE2_RUNTIME_SUPPORT:
-        #else:
-        #    raise RuntimeError("No supported SIMD backend available")
-
-        searchfn = opalSearchDatabaseSSE2
+        IF AVX2_BUILD_SUPPORT:
+            if _AVX2_RUNTIME_SUPPORT and searchfn is NULL:
+                searchfn = opalSearchDatabaseAVX2
+        IF SSE4_BUILD_SUPPORT:
+            if _SSE4_RUNTIME_SUPPORT and searchfn is NULL:
+                searchfn = opalSearchDatabaseSSE4
+        IF SSE2_BUILD_SUPPORT:
+            if _SSE2_RUNTIME_SUPPORT and searchfn is NULL:
+                searchfn = opalSearchDatabaseSSE2
 
         if searchfn is NULL:
-            raise RuntimeError("Failed to detect SIMD backend")
-    
+            raise RuntimeError("No supported SIMD backend available")
+
         with nogil:
             retcode = searchfn(
                 query,
@@ -255,8 +354,8 @@ cdef class Database:
                 lengths,
                 gap_open,
                 gap_extend,
-                matrix.getMatrix(),
-                matrix.getAlphabetLength(),
+                matrix._mx.getMatrix(),
+                matrix._mx.getAlphabetLength(),
                 results._results,
                 opal.OPAL_SEARCH_ALIGNMENT,
                 opal.OPAL_MODE_SW,
@@ -264,6 +363,6 @@ cdef class Database:
             )
 
         if retcode != 0:
-            raise RuntimeError("oh no!")
+            raise RuntimeError(f"Failed to run search Opal database (code={retcode})")
 
         return results
