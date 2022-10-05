@@ -409,12 +409,13 @@ class build_ext(_build_ext):
                 self._simd_defines["NEON"].append(("__ARM_NEON__", 1))
 
         # filter out extensions missing required CPU features
-        extensions = [
-            ext
-            for ext in self.extensions
-            if ext.requires is None
-            or self._simd_supported[ext.requires]
-        ]
+        extensions = []
+        for ext in self.extensions:
+            if ext.requires is None:
+                extensions.append(ext)
+            elif self._simd_supported[ext.requires]:
+                ext.extra_compile_args.extend(self._simd_flags[ext.requires])
+                extensions.append(ext)
         if not extensions:
             raise RuntimeError("Cannot build Opal for platform {}, no SIMD backend supported".format(MACHINE))
 
@@ -518,7 +519,7 @@ class build_clib(_build_clib):
 
     def build_libraries(self, libraries):
         # check for functions required for libcpu_features on OSX
-        if SYSTEM == "Darwin":
+        if TARGET_SYSTEM == "macos":
             _patch_osx_compiler(self.compiler)
             if self._check_function(
                 "sysctlbyname", "sys/sysctl.h", args="(NULL, NULL, 0, NULL, 0)"
@@ -548,7 +549,17 @@ class build_clib(_build_clib):
             library.define_macros.append(("HAVE_DLFCN_H", 1))
             hwcaps = True
         if library.name == "cpu_features" and hwcaps and TARGET_SYSTEM in ("linux_or_android", "freebsd", "macos"):
-            library.sources.append(os.path.join("vendor", "cpu_features", "src", "hwcaps.c"))
+            library.sources.extend(
+                os.path.join("vendor", "cpu_features", "src", basename)
+                for basename in [
+                    "hwcaps.c",
+                    "copy.inl",
+                    "define_introspection.inl",
+                    "define_introspection_and_hwcaps.inl",
+                    "equals.inl",
+                    "impl_x86__base_implementation.inl",
+                ]
+            )
 
         # add debug flags if we are building in debug mode
         if self.debug:
@@ -659,14 +670,13 @@ setuptools.setup(
                     "filesystem.c",
                     "stack_line_reader.c",
                     "string_view.c",
-                    "copy.inl",
-                    "define_introspection.inl",
-                    "define_introspection_and_hwcaps.inl",
-                    "equals.inl",
-                    "impl_x86__base_implementation.inl",
+
                 ]
             ],
-            include_dirs=[os.path.join("vendor", "cpu_features", "include")],
+            include_dirs=[
+                os.path.join("vendor", "cpu_features", "include"),
+                os.path.join("vendor", "cpu_features", "src"),
+            ],
             define_macros=[("STACK_LINE_READER_BUFFER_SIZE", 1024)],
         )
     ],
@@ -675,6 +685,9 @@ setuptools.setup(
             "pyopal._opal.neon",
             language="c++",
             requires="NEON",
+            define_macros=[
+                ("__ARM_NEON", 1),
+            ],
             sources=[
                 os.path.join("vendor", "opal", "src", "opal.cpp"),
                 os.path.join("pyopal", "_opal_neon.pyx"),
@@ -689,6 +702,9 @@ setuptools.setup(
             "pyopal._opal_sse2",
             language="c++",
             requires="SSE2",
+            define_macros=[
+                ("__SSE2__", 1),
+            ],
             sources=[
                 os.path.join("vendor", "opal", "src", "opal.cpp"),
                 os.path.join("pyopal", "_opal_sse2.pyx"),
@@ -703,6 +719,9 @@ setuptools.setup(
             "pyopal._opal_sse4",
             language="c++",
             requires="SSE4",
+            define_macros=[
+                ("__SSE4_1__", 1),
+            ],
             sources=[
                 os.path.join("vendor", "opal", "src", "opal.cpp"),
                 os.path.join("pyopal", "_opal_sse4.pyx"),
@@ -717,6 +736,9 @@ setuptools.setup(
             "pyopal._opal_avx2",
             language="c++",
             requires="AVX2",
+            define_macros=[
+                ("__AVX2__", 1),
+            ],
             sources=[
                 os.path.join("vendor", "opal", "src", "opal.cpp"),
                 os.path.join("pyopal", "_opal_avx2.pyx"),
