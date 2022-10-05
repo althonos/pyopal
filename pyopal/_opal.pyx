@@ -12,12 +12,19 @@ References:
 
 # --- C imports ----------------------------------------------------------------
 
-from cpython.bytes cimport PyBytes_AsString, PyBytes_FromStringAndSize
-from cpython.mem cimport PyMem_Malloc, PyMem_Realloc, PyMem_Free
-
 from libc.string cimport memset
 from libc.limits cimport UCHAR_MAX
 from libcpp.vector cimport vector
+
+from cpython.bytes cimport PyBytes_AsString, PyBytes_FromStringAndSize
+from cpython.mem cimport PyMem_Malloc, PyMem_Realloc, PyMem_Free
+from _unicode cimport (
+    PyUnicode_READY,
+    PyUnicode_KIND,
+    PyUnicode_DATA,
+    PyUnicode_READ,
+    PyUnicode_GET_LENGTH,
+)
 
 cimport opal
 cimport opal.score_matrix
@@ -35,11 +42,33 @@ IF AVX2_BUILD_SUPPORT:
 cdef extern from "<cctype>" namespace "std" nogil:
     cdef int toupper(int ch)
     cdef int tolower(int ch)
+    cdef bint isalpha(int cht)
 
 
 # --- Python imports -----------------------------------------------------------
 
 import operator
+
+
+# --- Constants ----------------------------------------------------------------
+
+cdef dict _OPAL_SEARCH_MODES = {
+    "score": opal.OPAL_SEARCH_SCORE,
+    "end": opal.OPAL_SEARCH_SCORE_END,
+    "full": opal.OPAL_SEARCH_ALIGNMENT,
+}
+
+cdef dict _OPAL_OVERFLOW_MODES = {
+    "simple": opal.OPAL_OVERFLOW_SIMPLE,
+    "buckets": opal.OPAL_OVERFLOW_BUCKETS,
+}
+
+cdef dict _OPAL_ALGORITHMS = {
+    "nw": opal.OPAL_MODE_NW,
+    "hw": opal.OPAL_MODE_HW,
+    "ov": opal.OPAL_MODE_OV,
+    "sw": opal.OPAL_MODE_SW,
+}
 
 
 # --- Runtime CPU detection ----------------------------------------------------
@@ -97,36 +126,53 @@ ctypedef int (*searchfn_t)(
 
 # --- Sequence encoding --------------------------------------------------------
 
-ctypedef fused bytelike:
-    str
-    object
+cdef inline void encode_str(str sequence, char* lut, seq_t* encoded, int* length) except *:
+    cdef size_t  i
+    cdef char    code
+    cdef Py_UCS4 letter
 
-cdef inline void encode(bytelike sequence, char* lut, seq_t* encoded, int* length) except *:
+    # make sure the unicode string is in canonical form,
+    # --> won't be needed anymore in Python 3.12
+    IF SYS_VERSION_INFO_MAJOR <= 3 and SYS_VERSION_INFO_MINOR < 12:
+        PyUnicode_READY(sequence)
 
-    cdef size_t                 i
-    cdef char                   code
-    cdef unsigned char          letter
-    cdef const unsigned char[:] view
+    cdef int     kind = PyUnicode_KIND(sequence)
+    cdef void*   data = PyUnicode_DATA(sequence)
+    cdef ssize_t slen = PyUnicode_GET_LENGTH(sequence)
 
-    if bytelike is str:
-        raise NotImplementedError("Encoding from string not yet implemented")
+    length[0] = slen
+    encoded[0] = <seq_t> PyMem_Malloc(length[0] * sizeof(digit_t))
+    if encoded[0] is NULL:
+        raise MemoryError("Failed to allocate sequence data")
 
-    else:
-
-        view       = sequence
-        length[0]  = view.shape[0]
-        encoded[0] = <seq_t> PyMem_Malloc(length[0] * sizeof(digit_t))
-        if encoded[0] is NULL:
-            raise MemoryError("Failed to allocate sequence data")
-
+    with nogil:
         for i in range(length[0]):
-            letter = <unsigned char> view[i]
-            code = lut[letter]
+            letter = PyUnicode_READ(kind, data, i)
+            if not isalpha(letter):
+                raise ValueError(f"Character outside ASCII range: {letter}")
+            code = lut[<unsigned char> letter]
             if code < 0:
-                raise ValueError(f"Invalid character in sequence: {chr(letter)}")
+                raise ValueError(f"Non-alphabet character in sequence: {chr(letter)}")
             encoded[0][i] = code
 
-    print("encoded:", [encoded[0][i] for i in range(length[0])])
+
+cdef inline void encode_bytes(const unsigned char[:] sequence, char* lut, seq_t* encoded, int* length) except *:
+    cdef size_t        i
+    cdef char          code
+    cdef unsigned char letter
+
+    length[0]  = sequence.shape[0]
+    encoded[0] = <seq_t> PyMem_Malloc(length[0] * sizeof(digit_t))
+    if encoded[0] is NULL:
+        raise MemoryError("Failed to allocate sequence data")
+
+    with nogil:
+        for i in range(length[0]):
+            letter = <unsigned char> sequence[i]
+            code = lut[letter]
+            if code < 0:
+                raise ValueError(f"Non-alphabet character in sequence: {chr(letter)}")
+            encoded[0][i] = code
 
 
 # --- Python classes -----------------------------------------------------------
@@ -378,11 +424,11 @@ cdef class Database:
             self._sequences.reserve(hint + size)
             self._lengths.reserve(hint + size)
 
-        # append sequences sequentially
+        # append sequences in order
         for sequence in sequences:
             self.append(sequence)
 
-    cpdef void append(self, bytelike sequence) except *:
+    cpdef void append(self, object sequence) except *:
         """append(self, sequence)\n--
 
         Append a single sequence at the end of the database.
@@ -391,7 +437,10 @@ cdef class Database:
         cdef int   length
         cdef seq_t encoded
 
-        encode(sequence, self.score_matrix._ahash, &encoded, &length)
+        if isinstance(sequence, str):
+            encode_str(sequence, self.score_matrix._ahash, &encoded, &length)
+        else:
+            encode_bytes(sequence, self.score_matrix._ahash, &encoded, &length)
 
         self._sequences.push_back(encoded)
         self._lengths.push_back(length)
@@ -399,17 +448,46 @@ cdef class Database:
 
     # --- Opal search ----------------------------------------------------------
 
-    def search(self, bytelike sequence, *, int gap_open = 3, int gap_extend = 1):
+    def search(
+        self, 
+        object sequence, 
+        *, 
+        int gap_open = 3, 
+        int gap_extend = 1,
+        str mode = "score",
+        str overflow = "buckets",
+        str algorithm = "sw",
+    ):
+        cdef int             _mode 
+        cdef int             _overflow
+        cdef int             _algo 
         cdef size_t          i
         cdef int             retcode
         cdef int             length
-        cdef size_t          size     = self._sequences.size()
-        cdef seq_t           query    = NULL
-        cdef searchfn_t      searchfn = NULL
-        cdef SearchResults   results  = SearchResults.__new__(SearchResults)
+        cdef size_t          size      = self._sequences.size()
+        cdef seq_t           query     = NULL
+        cdef searchfn_t      searchfn  = NULL
+        cdef SearchResults   results   = SearchResults.__new__(SearchResults)
 
+        # validate parameters
+        if mode in _OPAL_SEARCH_MODES:
+            _mode = _OPAL_SEARCH_MODES[mode]
+        else:
+            raise ValueError(f"Invalid search mode: {mode!r}")
+        if overflow in _OPAL_OVERFLOW_MODES:
+            _overflow = _OPAL_OVERFLOW_MODES[overflow]
+        else:
+            raise ValueError(f"Invalid overflow mode: {mode!r}")
+        if algorithm in _OPAL_ALGORITHMS:
+            _algo = _OPAL_ALGORITHMS[algorithm]
+        else:
+            raise ValueError(f"Invalid algorithm: {algorithm!r}")
+                
         # Prepare query
-        encode(sequence, self.score_matrix._ahash, &query, &length)
+        if isinstance(sequence, str):
+            encode_str(sequence, self.score_matrix._ahash, &query, &length)
+        else:
+            encode_bytes(sequence, self.score_matrix._ahash, &query, &length)
 
         # Prepare array of results
         results._size    = size
@@ -444,9 +522,9 @@ cdef class Database:
                 self.score_matrix._mx.getMatrix(),
                 self.score_matrix._mx.getAlphabetLength(),
                 results._results,
-                opal.OPAL_SEARCH_ALIGNMENT,
-                opal.OPAL_MODE_SW,
-                opal.OPAL_OVERFLOW_BUCKETS,
+                _mode,
+                _algo,
+                _overflow,
             )
 
         # free allocated memory
