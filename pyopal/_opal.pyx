@@ -262,6 +262,7 @@ cdef class ScoreMatrix:
         #     raise ValueError(f"Cannot use alphabet of more than 32 symbols: {alphabet!r}")
 
         # copy the alphabet and create a lookup-table for encoding sequences
+        memset(self._ahash, 0xFF, UCHAR_MAX*sizeof(char))
         for i, letter in enumerate(alphabet):
             j = ord(letter)
             abcvector[i] = j
@@ -449,18 +450,65 @@ cdef class Database:
     # --- Opal search ----------------------------------------------------------
 
     def search(
-        self, 
-        object sequence, 
-        *, 
-        int gap_open = 3, 
+        self,
+        object sequence,
+        *,
+        int gap_open = 3,
         int gap_extend = 1,
         str mode = "score",
         str overflow = "buckets",
         str algorithm = "sw",
     ):
-        cdef int             _mode 
+        """search(self, sequence, *, gap_open=3, gap_extend=1, mode="score", overflow="buckets", algorithm="sw")\n--
+
+        Search the database with a query sequence.
+
+        Arguments:
+            sequence (`str` or byte-like object): The sequence to query the
+                database with.
+
+        Keyword Arguments:
+            gap_open(`int`): The gap opening penalty :math:`G`.
+            gap_extend (`int`): The gap extension penalty :math:`E`.
+            mode (`str`): The search mode to use for querying the database:
+                ``score`` to only report scores for each hit (default),
+                ``end`` to report scores and end coordinates for each
+                hit (slower), ``full`` to report scores, coordinates and
+                alignment for each hit (slowest).
+            overflow (`str`): The strategy to use when a sequence score
+                overflows in the comparison pipeline: ``simple`` computes
+                scores with 8-bit range first then recomputes with 16-bit
+                range (and then 32-bit) the sequences that overflowed;
+                ``bucket`` to divide the targets in ``buckets``, and switch
+                to larger score ranges within a bucket when the first
+                overflow is detected.
+            algorithm (`str`): The alignment algorithm to use: ``nw``
+                for global Needleman-Wunsch alignment, ``hw`` for semi-global
+                alignment without penalization of gaps on query edges, ``ov``
+                for semi-global alignment without penalization of gaps on
+                query or target edges, and ``sw`` for local Smith-Waterman
+                alignment.
+
+        Hit:
+            A gap of length :math:`N` will receive a penalty of
+            :math:`E + (N - 1)G`.
+
+        Returns:
+            `pyopal.SearchResults`: A list containing one `SearchResult`
+                object for each target sequence in the database, containing
+                scores, and optionally coordinates and alignments.
+
+        Raises:
+            `ValueError`: When ``sequence`` contains invalid characters
+                with respect to the alphabet of the database scoring
+                matrix.
+
+        """
+        assert self.score_matrix is not None
+
+        cdef int             _mode
         cdef int             _overflow
-        cdef int             _algo 
+        cdef int             _algo
         cdef size_t          i
         cdef int             retcode
         cdef int             length
@@ -482,7 +530,7 @@ cdef class Database:
             _algo = _OPAL_ALGORITHMS[algorithm]
         else:
             raise ValueError(f"Invalid algorithm: {algorithm!r}")
-                
+
         # Prepare query
         if isinstance(sequence, str):
             encode_str(sequence, self.score_matrix._ahash, &query, &length)
@@ -537,7 +585,7 @@ cdef class Database:
                 _overflow,
             )
 
-        # free allocated memory
+        # free memory for the query
         PyMem_Free(query)
 
         # return results or raise an exception on failure
