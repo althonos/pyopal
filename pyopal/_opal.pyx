@@ -44,6 +44,9 @@ cdef extern from "<cctype>" namespace "std" nogil:
     cdef int tolower(int ch)
     cdef bint isalpha(int cht)
 
+cdef extern from "<algorithm>" namespace "std" nogil:
+    cdef void reverse[T](T, T)
+
 
 # --- Python imports -----------------------------------------------------------
 
@@ -446,6 +449,14 @@ cdef class Database:
         self._sequences.push_back(encoded)
         self._lengths.push_back(length)
 
+    cpdef void reverse(self) except *:
+        """reverse(self)\n--
+
+        Reverse the database, in place.
+
+        """
+        reverse(self._sequences.begin(), self._sequences.end())
+        reverse(self._lengths.begin(), self._lengths.end())
 
     # --- Opal search ----------------------------------------------------------
 
