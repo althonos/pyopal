@@ -295,11 +295,15 @@ class build_ext(_build_ext):
         else:
             ext.define_macros.append(("CYTHON_WITHOUT_ASSERTIONS", 1))
 
-        # add C++11 flags
+        # add C++11 flags and silence some warnings
         if self.compiler.compiler_type in {"unix", "cygwin", "mingw32"}:
-            ext.extra_compile_args.append("-std=c++11")
-            ext.extra_compile_args.append("-funroll-loops")
-            ext.extra_link_args.append("-Wno-alloc-size-larger-than")
+            ext.extra_compile_args.extend([
+                "-funroll-loops", 
+                "-std=c++11", 
+                "-Wno-unused-variable", 
+                "-Wno-maybe-uninitialized", 
+                "-Wno-return-type"
+            ])
         elif self.compiler.compiler_type == "msvc":
             ext.extra_compile_args.append("/std:c11")
 
