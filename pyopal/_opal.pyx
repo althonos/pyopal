@@ -494,7 +494,14 @@ cdef class Database:
         results._results = <OpalSearchResult**> PyMem_Malloc(size * sizeof(OpalSearchResult*))
         for i in range(size):
             results._results[i] = <OpalSearchResult*> PyMem_Malloc(sizeof(OpalSearchResult))
-            opal.opalInitSearchResult(results._results[i])
+            # opal.opalInitSearchResult(results._results[i])
+            results._results[i].scoreSet = 0
+            results._results[i].startLocationQuery = -1
+            results._results[i].startLocationTarget = -1
+            results._results[i].endLocationQuery = -1
+            results._results[i].endLocationTarget = -1
+            results._results[i].alignmentLength = 0
+            results._results[i].alignment = NULL
 
         # Select best available SIMD backend
         IF AVX2_BUILD_SUPPORT:
@@ -506,6 +513,9 @@ cdef class Database:
         IF SSE2_BUILD_SUPPORT:
             if _SSE2_RUNTIME_SUPPORT and searchfn is NULL:
                 searchfn = opalSearchDatabaseSSE2
+        IF NEON_BUILD_SUPPORT:
+            if _NEON_RUNTIME_SUPPORT and searchfn is NULL:
+                searchfn = opalSearchDatabaseNEON
         if searchfn is NULL:
             raise RuntimeError("No supported SIMD backend available")
 

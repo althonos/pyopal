@@ -415,6 +415,7 @@ class build_ext(_build_ext):
                 extensions.append(ext)
             elif self._simd_supported[ext.requires]:
                 ext.extra_compile_args.extend(self._simd_flags[ext.requires])
+                ext.extra_link_args.extend(self._simd_flags[ext.requires])
                 extensions.append(ext)
         if not extensions:
             raise RuntimeError("Cannot build Opal for platform {}, no SIMD backend supported".format(MACHINE))
@@ -682,7 +683,7 @@ setuptools.setup(
     ],
     ext_modules=[
         Extension(
-            "pyopal._opal.neon",
+            "pyopal._opal_neon",
             language="c++",
             requires="NEON",
             define_macros=[
@@ -754,7 +755,6 @@ setuptools.setup(
             language="c++",
             sources=[
                 os.path.join("vendor", "opal", "src", "ScoreMatrix.cpp"),
-                os.path.join("vendor", "opal", "src", "opal.cpp"),
                 os.path.join("pyopal", "_opal.pyx"),
             ],
             extra_compile_args=[],
