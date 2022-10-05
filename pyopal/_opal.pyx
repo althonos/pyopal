@@ -185,6 +185,7 @@ cdef class ScoreMatrix:
     """
     cdef opal.score_matrix.ScoreMatrix _mx
     cdef char                          _ahash[UCHAR_MAX]
+    cdef char                          _unknown
 
     @classmethod
     def aa(cls):
@@ -193,17 +194,18 @@ cdef class ScoreMatrix:
         Create a default amino-acid scoring matrix (BLOSUM50).
 
         """
-        cdef size_t               i
+        cdef int                  i
+        cdef char                 unknown
         cdef unsigned char        letter
         cdef const unsigned char* alphabet
+        cdef ScoreMatrix          matrix   = ScoreMatrix.__new__(ScoreMatrix)
 
-        cdef ScoreMatrix matrix = ScoreMatrix.__new__(ScoreMatrix)
         matrix._mx = opal.score_matrix.ScoreMatrix.getBlosum50()
-
         alphabet = matrix._mx.getAlphabet()
+        matrix._unknown  = alphabet.find(b'*')
 
         for i in range(UCHAR_MAX):
-            matrix._ahash[i] = -1
+            matrix._ahash[i] = matrix._unknown
         for i in range(matrix._mx.getAlphabetLength()):
             letter = alphabet[i]
             matrix._ahash[toupper(letter)] = matrix._ahash[tolower(letter)] = i
@@ -211,7 +213,10 @@ cdef class ScoreMatrix:
         return matrix
 
     def __cinit__(self):
-        memset(self._ahash, 0xFF, UCHAR_MAX*sizeof(char))
+        cdef int i
+        self._unknown = -1
+        for i in range(UCHAR_MAX):
+            self._ahash[i] = self._unknown
 
     def __init__(self, str alphabet not None, object matrix not None):
         """__init__(alphabet, matrix)\n--
@@ -220,6 +225,9 @@ cdef class ScoreMatrix:
 
         Arguments:
             alphabet (`str`): The alphabet of the similarity matrix.
+                If the alphabet contains the ``*`` character, it is 
+                treated as a wildcard for any unknown symbol in the 
+                query or target sequences. 
             matrix (`~numpy.typing.ArrayLike` of `int`): The scoring matrix,
                 as a square matrix indexed by the alphabet characters.
 
@@ -247,6 +255,7 @@ cdef class ScoreMatrix:
         cdef object        row
         cdef int           value
         cdef str           letter
+        cdef char          unknown  
         cdef int           length    = len(matrix)
         cdef vector[uchar] abcvector = vector[uchar](length, 0)
         cdef vector[int]   scores    = vector[int](length*length, 0)
@@ -265,7 +274,9 @@ cdef class ScoreMatrix:
         #     raise ValueError(f"Cannot use alphabet of more than 32 symbols: {alphabet!r}")
 
         # copy the alphabet and create a lookup-table for encoding sequences
-        memset(self._ahash, 0xFF, UCHAR_MAX*sizeof(char))
+        self._unknown = alphabet.find("*")
+        for i in range(UCHAR_MAX):
+            self._ahash[i] = self._unknown
         for i, letter in enumerate(alphabet):
             j = ord(letter)
             abcvector[i] = j
