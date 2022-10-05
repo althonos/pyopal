@@ -87,7 +87,7 @@ def load_tests(loader, tests, ignore):
                 )
             )
             # if the submodule is a package, we need to process its submodules
-            # as well, so we add it to the package queue, unless it is the 
+            # as well, so we add it to the package queue, unless it is the
             # `pyopal.tests` package (we don't need to check for doctests there)
             if subispkg and subpkgname != "tests":
                 packages.append(module)

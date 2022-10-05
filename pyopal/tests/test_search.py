@@ -3,16 +3,14 @@ import unittest
 import pyopal
 
 
-
 class TestSearch(unittest.TestCase):
-
     def test_test1(self):
 
         query = "ACCTCG"
         target = "AACCGCTG"
 
         db = pyopal.Database([target])
-        
+
         results = db.search(query)
         self.assertEqual(len(db), 1)
         self.assertEqual(results[0].score, 47)
@@ -48,6 +46,3 @@ class TestSearch(unittest.TestCase):
         self.assertEqual(results[0].query_end, 5)
         self.assertEqual(results[0].target_start, 1)
         self.assertEqual(results[0].target_end, 7)
-
-
-    
