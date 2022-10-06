@@ -59,6 +59,14 @@ cdef extern from "<shared_mutex>" namespace "std" nogil:
         void lock_shared()
         void unlock_shared()
 
+cdef extern from * nogil:
+    """
+    template<class T> 
+    void erase(std::vector<T>& v, size_t index) { v.erase(v.at(index)); }
+    """
+
+    cdef void erase[T](vector[T]& v, size_t index)
+
 # --- Python imports -----------------------------------------------------------
 
 import operator
@@ -662,8 +670,8 @@ cdef class Database:
             if index_ < 0 or (<size_t> index_) >= size:
                 raise IndexError(index)
 
-            self._sequences.erase(<vector[seq_t].iterator> &self._sequences[index_])
-            self._lengths.erase(<vector[int].iterator> &self._lengths[index_])
+            self._sequences.erase(self._sequences.begin() + index_)
+            self._lengths.erase(self._lengths.begin() + index_)
 
     cpdef void clear(self) except *:
         """clear(self)\n--
@@ -741,8 +749,8 @@ cdef class Database:
                 index_ = size
 
             encode(sequence, self.score_matrix._ahash, &encoded, &length)
-            self._sequences.insert(<vector[seq_t].iterator> &self._sequences[index_], encoded)
-            self._lengths.insert(<vector[int].iterator> &self._lengths[index_], length)
+            self._sequences.insert(self._sequences.begin() + index_, encoded)
+            self._lengths.insert(self._lengths.begin() + index_, length)
 
 
     # --- Opal search ----------------------------------------------------------
