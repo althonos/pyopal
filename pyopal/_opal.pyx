@@ -53,6 +53,7 @@ cdef extern from "<algorithm>" namespace "std" nogil:
 
 # --- Python imports -----------------------------------------------------------
 
+import enum
 import operator
 
 
@@ -76,6 +77,12 @@ cdef dict _OPAL_ALGORITHMS = {
     "sw": opal.OPAL_MODE_SW,
 }
 
+cdef dict _OPAL_ALIGNMENT_OPERATION = {
+    'M': opal.OPAL_ALIGN_MATCH,
+    'D': opal.OPAL_ALIGN_DEL,
+    'I': opal.OPAL_ALIGN_INS,
+    'X': opal.OPAL_ALIGN_MISMATCH,
+}
 
 # --- Runtime CPU detection ----------------------------------------------------
 
@@ -183,6 +190,12 @@ cdef inline void encode_bytes(const unsigned char[:] sequence, char* lut, seq_t*
 
 
 # --- Python classes -----------------------------------------------------------
+
+class AlignmentOperation(enum.IntEnum):
+    Match = 0
+    Deletion = 1
+    Insertion = 2
+    Mismatch = 3
 
 cdef class ScoreMatrix:
     """A score matrix for comparing character matches in sequences.
@@ -299,11 +312,9 @@ cdef class SearchResult:
 
     cdef ssize_t          _target_index
     cdef OpalSearchResult _result
-    cdef Alignment        _alignment
 
     def __cinit__(self):
         self._target_index = -1
-        self._alignment = None
         self._result.scoreSet = 0
         self._result.startLocationQuery = -1
         self._result.startLocationTarget = -1
@@ -312,20 +323,8 @@ cdef class SearchResult:
         self._result.alignmentLength = 0
         self._result.alignment = NULL
 
-    def __repr__(self):
-        assert self._result.scoreSet
-
-        cdef str ty    = type(self).__name__
-        cdef list args = [f"target_index={self._target_index}", f"score={self.score}"]
-
-        if self._result.endLocationQuery >= 0 and self._result.endLocationTarget >= 0:
-            args.append(f"query_end={self._result.endLocationQuery}")
-            args.append(f"target_end={self._result.endLocationTarget}")
-        if self._result.startLocationQuery >= 0 and self._result.startLocationTarget >= 0:
-            args.append(f"query_start={self._result.startLocationQuery}")
-            args.append(f"target_start={self._result.startLocationTarget}")
-
-        return "{}({})".format(ty, ", ".join(args))
+    def __dealloc__(self):
+        PyMem_Free(self._result.alignment)
 
     def __init__(
         self,
@@ -336,6 +335,7 @@ cdef class SearchResult:
         target_end=None,
         query_start=None,
         target_start=None,
+        str alignment=None,
     ):
         self._target_index = target_index
         self._result.score = score
@@ -354,9 +354,33 @@ cdef class SearchResult:
             self._result.startLocationQuery = query_start
         if target_start is not None:
             self._result.startLocationTarget = query_start
+        if alignment is not None:
+            self._result.alignmentLength = len(alignment)
+            self._result.alignment = <unsigned char*> PyMem_Realloc(self._result.alignment, self._result.alignmentLength * sizeof(unsigned char))
+            for i, x in enumerate(alignment):
+                self._result.alignment[i] = _OPAL_ALIGNMENT_OPERATION[x]
+
+    def __repr__(self):
+        assert self._result.scoreSet
+
+        cdef str ty    = type(self).__name__
+        cdef list args = [f"target_index={self._target_index}", f"score={self.score}"]
+
+        if self._result.endLocationQuery >= 0 and self._result.endLocationTarget >= 0:
+            args.append(f"query_end={self._result.endLocationQuery!r}")
+            args.append(f"target_end={self._result.endLocationTarget!r}")
+        if self._result.startLocationQuery >= 0 and self._result.startLocationTarget >= 0:
+            args.append(f"query_start={self._result.startLocationQuery!r}")
+            args.append(f"target_start={self._result.startLocationTarget!r}")
+        if self._result.alignmentLength > 0:
+            args.append(f"alignment={self.alignment!r}")
+            
+        return "{}({})".format(ty, ", ".join(args))
 
     @property
     def score(self):
+        """`int`: The score of the alignment.
+        """
         assert self._result.scoreSet
         return self._result.score
 
@@ -378,11 +402,59 @@ cdef class SearchResult:
 
     @property
     def target_index(self):
-        return None if self._target_index < 0 else self._target_index
+        """`int`: The index of the target in the database.
+        """
+        assert self._target_index >= 0
+        return self._target_index
 
     @property
     def alignment(self):
-        return self._alignment
+        """`str` or `None`: A string used by Opal to encode alignments. 
+        """
+        cdef bytearray        ali     
+        cdef unsigned char[:] view
+        cdef Py_UCS4[4]       symbols = ['M', 'D', 'I', 'X']
+
+        if self._result.alignmentLength > 0:
+            ali = bytearray(self._result.alignmentLength)
+            view = ali
+            for i in range(self._result.alignmentLength):
+                view[i] = symbols[self._result.alignment[i]]
+            return ali.decode('ascii')
+
+        return None
+
+    cpdef str cigar(self):
+        """cigar(self)\n--
+        
+        Create a CIGAR string representing the alignment.
+
+        """
+        cdef size_t        i
+        cdef unsigned char symbol
+        cdef unsigned char current
+        cdef size_t        count
+        cdef Py_UCS4[3]    symbols = ['M', 'D', 'I']
+        cdef list          chunks  = []
+
+        if self._result.alignmentLength == 0 or self._result.alignment is None:
+            return None
+
+        count = 0
+        current = self._result.alignment[0]
+        for i in range(self._result.alignmentLength):
+            symbol = self._result.alignment[i] % 3
+            if symbol == current:
+                count += 1
+            else:
+                chunks.append(str(count))
+                chunks.append(symbols[current])
+                current = symbol
+                count = 1
+        chunks.append(str(count))
+        chunks.append(symbols[current])
+
+        return "".join(chunks)
 
 
 cdef class Database:
@@ -642,12 +714,6 @@ cdef class Database:
         # check the alignment worked
         if retcode != 0:
             raise RuntimeError(f"Failed to run search Opal database (code={retcode})")
-
-        # create alignment objects if needed
-        if _mode == opal.OPAL_SEARCH_ALIGNMENT:
-            for result in results:
-                result._alignment = Alignment.__new__(Alignment)
-
         return results
 
 
