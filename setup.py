@@ -295,17 +295,17 @@ class build_ext(_build_ext):
         else:
             ext.define_macros.append(("CYTHON_WITHOUT_ASSERTIONS", 1))
 
-        # add C++11 flags and silence some warnings
+        # add C++17 flags (<shared_mutex>) and silence some warnings
         if self.compiler.compiler_type in {"unix", "cygwin", "mingw32"}:
             ext.extra_compile_args.extend([
-                "-funroll-loops", 
-                "-std=c++11", 
-                "-Wno-unused-variable", 
-                "-Wno-maybe-uninitialized", 
+                "-funroll-loops",
+                "-std=c++17",
+                "-Wno-unused-variable",
+                "-Wno-maybe-uninitialized",
                 "-Wno-return-type"
             ])
         elif self.compiler.compiler_type == "msvc":
-            ext.extra_compile_args.append("/std:c11")
+            ext.extra_compile_args.append("/std:c17")
 
         # add Windows flags
         if self.compiler.compiler_type == "msvc":
@@ -323,8 +323,8 @@ class build_ext(_build_ext):
         # build the rest of the extension as normal
         ext._needs_stub = False
 
-        # compile extension in its own folder: since we need to compile 
-        # `opal.cpp` several times with different flags, we cannot use the 
+        # compile extension in its own folder: since we need to compile
+        # `opal.cpp` several times with different flags, we cannot use the
         # default build folder, otherwise the built object would be cached
         # and prevent recompilation
         _build_temp = self.build_temp

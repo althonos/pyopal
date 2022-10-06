@@ -51,6 +51,13 @@ cdef extern from "<algorithm>" namespace "std" nogil:
     cdef void reverse[T](T, T)
     cdef int  count[T, V](T, T, V)
 
+cdef extern from "<shared_mutex>" namespace "std" nogil:
+    cdef cppclass shared_mutex:
+        shared_mutex()
+        void lock()
+        void unlock()
+        void lock_shared()
+        void unlock_shared()
 
 # --- Python imports -----------------------------------------------------------
 
@@ -143,6 +150,43 @@ ctypedef int (*searchfn_t)(
     int,
 ) nogil
 
+# --- Exclusive read/write lock ------------------------------------------------
+
+cdef class SharedMutex:
+    cdef          shared_mutex mutex
+    cdef readonly ReadLock     read
+    cdef readonly WriteLock    write
+
+    def __cinit__(self):
+        self.read = ReadLock(self)
+        self.write = WriteLock(self)
+
+
+cdef class ReadLock:
+    cdef SharedMutex owner
+
+    def __cinit__(self, SharedMutex owner):
+        self.owner = owner
+
+    def __enter__(self):
+        self.owner.mutex.lock_shared()
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.owner.mutex.unlock_shared()
+
+
+cdef class WriteLock:
+    cdef SharedMutex owner
+
+    def __cinit__(self, SharedMutex owner):
+        self.owner = owner
+
+    def __enter__(self):
+        self.owner.mutex.lock()
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.owner.mutex.unlock()
+
 
 # --- Sequence encoding --------------------------------------------------------
 
@@ -193,6 +237,12 @@ cdef inline void encode_bytes(const unsigned char[:] sequence, char* lut, seq_t*
             if code < 0:
                 raise ValueError(f"Non-alphabet character in sequence: {chr(letter)}")
             encoded[0][i] = code
+
+cdef inline void encode(object sequence, char* lut, seq_t* encoded, int* length) except *:
+    if isinstance(sequence, str):
+        encode_str(sequence, lut, encoded, length)
+    else:
+        encode_bytes(sequence, lut, encoded, length)
 
 
 # --- Python classes -----------------------------------------------------------
@@ -450,9 +500,9 @@ cdef class FullResult(EndResult):
 
     @property
     def alignment(self):
-        """`str` or `None`: A string used by Opal to encode alignments. 
+        """`str` or `None`: A string used by Opal to encode alignments.
         """
-        cdef bytearray        ali     
+        cdef bytearray        ali
         cdef unsigned char[:] view
         cdef Py_UCS4[4]       symbols = ['M', 'D', 'I', 'X']
 
@@ -467,7 +517,7 @@ cdef class FullResult(EndResult):
 
     cpdef str cigar(self):
         """cigar(self)\n--
-        
+
         Create a CIGAR string representing the alignment.
 
         """
@@ -521,6 +571,7 @@ cdef class Database:
 
     """
 
+    cdef readonly SharedMutex   lock
     cdef readonly ScoreMatrix   score_matrix
     cdef          vector[seq_t] _sequences
     cdef          vector[int]   _lengths
@@ -528,6 +579,7 @@ cdef class Database:
     # --- Magic methods --------------------------------------------------------
 
     def __cinit__(self):
+        self.lock       = SharedMutex()
         self._sequences = vector[seq_t]()
         self._lengths   = vector[int]()
 
@@ -550,61 +602,68 @@ cdef class Database:
     # --- Sequence interface ---------------------------------------------------
 
     def __len__(self):
-        return self._sequences.size()
+        with self.lock.read:
+            return self._sequences.size()
 
     def __getitem__(self, ssize_t index):
         cdef size_t         i
         cdef bytearray      decoded
         cdef seq_t          encoded
+        cdef size_t         size
         cdef ssize_t        index_   = index
-        cdef size_t         size     = self._sequences.size()
         cdef unsigned char* alphabet = self.score_matrix._mx.getAlphabet()
 
-        if index_ < 0:
-            index_ += size
-        if index_ < 0 or (<size_t> index_) >= size:
-            raise IndexError(index)
+        with self.lock.read:
+            size = self._sequences.size()
 
-        encoded = self._sequences[index_]
-        decoded = bytearray(self._lengths[index_])
-        for i in range(self._lengths[index_]):
-            decoded[i] = alphabet[encoded[i]]
+            if index_ < 0:
+                index_ += size
+            if index_ < 0 or (<size_t> index_) >= size:
+                raise IndexError(index)
+
+            encoded = self._sequences[index_]
+            decoded = bytearray(self._lengths[index_])
+            for i in range(self._lengths[index_]):
+                decoded[i] = alphabet[encoded[i]]
 
         return decoded.decode("ascii")
 
     def __setitem__(self, ssize_t index, object sequence):
         cdef int     length
         cdef seq_t   encoded
+        cdef size_t  size
         cdef ssize_t index_  = index
-        cdef size_t  size    = self._sequences.size()
 
-        if index_ < 0:
-            index_ += size
-        if index_ < 0 or (<size_t> index_) >= size:
-            raise IndexError(index)
+        with self.lock.write:
+            size = self._sequences.size()
 
-        if isinstance(sequence, str):
-            encode_str(sequence, self.score_matrix._ahash, &encoded, &length)
-        else:
-            encode_bytes(sequence, self.score_matrix._ahash, &encoded, &length)
-        
-        PyMem_Free(self._sequences[index_])
-        self._sequences[index_] = encoded
-        self._lengths[index_] = length
+            if index_ < 0:
+                index_ += size
+            if index_ < 0 or (<size_t> index_) >= size:
+                raise IndexError(index)
+
+            encode(sequence, self.score_matrix._ahash, &encoded, &length)
+
+            PyMem_Free(self._sequences[index_])
+            self._sequences[index_] = encoded
+            self._lengths[index_] = length
 
     def __delitem__(self, ssize_t index):
         cdef int     length
         cdef seq_t   encoded
+        cdef size_t  size
         cdef ssize_t index_  = index
-        cdef size_t  size    = self._sequences.size()
 
-        if index_ < 0:
-            index_ += size
-        if index_ < 0 or (<size_t> index_) >= size:
-            raise IndexError(index)
+        with self.lock.write:
+            size = self._sequences.size()
 
-        self._sequences.erase(<vector[seq_t].iterator> &self._sequences[index_])
-        self._lengths.erase(<vector[int].iterator> &self._lengths[index_])
+            if index_ < 0:
+                index_ += size
+            if index_ < 0 or (<size_t> index_) >= size:
+                raise IndexError(index)
+
+            self._sequences.erase(<vector[seq_t].iterator> &self._sequences[index_])
+            self._lengths.erase(<vector[int].iterator> &self._lengths[index_])
 
     cpdef void clear(self) except *:
         """clear(self)\n--
@@ -613,10 +672,14 @@ cdef class Database:
 
         """
         cdef size_t i
-        for i in range(self._sequences.size()):
-            PyMem_Free(self._sequences[i])
-        self._sequences.clear()
-        self._lengths.clear()
+
+        with self.lock.write:
+
+            for i in range(self._sequences.size()):
+                PyMem_Free(self._sequences[i])
+
+            self._sequences.clear()
+            self._lengths.clear()
 
     cpdef void extend(self, object sequences) except *:
         """extend(self, sequences)\n--
@@ -624,12 +687,15 @@ cdef class Database:
         Extend the database by adding sequences from an iterable.
 
         """
-        # attempt to reserve space in advance for the new sequences
+        cdef size_t size
         cdef size_t hint = operator.length_hint(sequences)
-        cdef size_t size = self._sequences.size()
-        if hint > 0:
-            self._sequences.reserve(hint + size)
-            self._lengths.reserve(hint + size)
+
+        # attempt to reserve space in advance for the new sequences
+        with self.lock.write:
+            size = self._sequences.size()
+            if hint > 0:
+                self._sequences.reserve(hint + size)
+                self._lengths.reserve(hint + size)
 
         # append sequences in order
         for sequence in sequences:
@@ -644,13 +710,11 @@ cdef class Database:
         cdef int   length
         cdef seq_t encoded
 
-        if isinstance(sequence, str):
-            encode_str(sequence, self.score_matrix._ahash, &encoded, &length)
-        else:
-            encode_bytes(sequence, self.score_matrix._ahash, &encoded, &length)
+        encode(sequence, self.score_matrix._ahash, &encoded, &length)
 
-        self._sequences.push_back(encoded)
-        self._lengths.push_back(length)
+        with self.lock.write:
+            self._sequences.push_back(encoded)
+            self._lengths.push_back(length)
 
     cpdef void reverse(self) except *:
         """reverse(self)\n--
@@ -658,29 +722,29 @@ cdef class Database:
         Reverse the database, in place.
 
         """
-        reverse(self._sequences.begin(), self._sequences.end())
-        reverse(self._lengths.begin(), self._lengths.end())
+        with self.lock.write:
+            reverse(self._sequences.begin(), self._sequences.end())
+            reverse(self._lengths.begin(), self._lengths.end())
 
     cpdef void insert(self, ssize_t index, object sequence):
         cdef int     length
         cdef seq_t   encoded
+        cdef size_t  size
         cdef ssize_t index_  = index
-        cdef size_t  size    = self._sequences.size()
 
-        if index_ < 0:
-            index_ = 0
-        elif (<size_t> index_) >= size:
-            index_ = size
+        with self.lock.write:
+            size = self._sequences.size()
 
-        if isinstance(sequence, str):
-            encode_str(sequence, self.score_matrix._ahash, &encoded, &length)
-        else:
-            encode_bytes(sequence, self.score_matrix._ahash, &encoded, &length)
-        
-        self._sequences.insert(<vector[seq_t].iterator> &self._sequences[index_], encoded)
-        self._lengths.insert(<vector[int].iterator> &self._lengths[index_], length)
+            if index_ < 0:
+                index_ = 0
+            elif (<size_t> index_) >= size:
+                index_ = size
 
-   
+            encode(sequence, self.score_matrix._ahash, &encoded, &length)
+            self._sequences.insert(<vector[seq_t].iterator> &self._sequences[index_], encoded)
+            self._lengths.insert(<vector[int].iterator> &self._lengths[index_], length)
+
+
     # --- Opal search ----------------------------------------------------------
 
     def search(
@@ -747,10 +811,10 @@ cdef class Database:
         cdef int                          retcode
         cdef int                          length
         cdef ScoreResult                  result
-        cdef type                         result_type                       
+        cdef type                         result_type
         cdef list                         results
         cdef vector[OpalSearchResult_ptr] results_raw
-        cdef size_t                       size        = self._sequences.size()
+        cdef size_t                       size
         cdef seq_t                        query       = NULL
         cdef searchfn_t                   searchfn    = NULL
 
@@ -770,60 +834,60 @@ cdef class Database:
             raise ValueError(f"Invalid algorithm: {algorithm!r}")
 
         # Prepare query
-        if isinstance(sequence, str):
-            encode_str(sequence, self.score_matrix._ahash, &query, &length)
-        else:
-            encode_bytes(sequence, self.score_matrix._ahash, &query, &length)
+        encode(sequence, self.score_matrix._ahash, &query, &length)
 
-        # Prepare list of results
-        res_array = PyMem_Malloc(sizeof(OpalSearchResult*) * size)
-        results_raw.reserve(size)
-        results = PyList_New(size)
-        for i in range(size):
-            result = result_type.__new__(result_type)
-            result._target_index = i
-            Py_INCREF(result)
-            PyList_SET_ITEM(results, i, result)
-            results_raw.push_back(&result._result)
+        with self.lock.read:
+            size = self._sequences.size()
 
-        # Select best available SIMD backend
-        IF AVX2_BUILD_SUPPORT:
-            if _AVX2_RUNTIME_SUPPORT and searchfn is NULL:
-                searchfn = opalSearchDatabaseAVX2
-        IF SSE4_BUILD_SUPPORT:
-            if _SSE4_RUNTIME_SUPPORT and searchfn is NULL:
-                searchfn = opalSearchDatabaseSSE4
-        IF SSE2_BUILD_SUPPORT:
-            if _SSE2_RUNTIME_SUPPORT and searchfn is NULL:
-                searchfn = opalSearchDatabaseSSE2
-        IF NEON_BUILD_SUPPORT:
-            if _NEON_RUNTIME_SUPPORT and searchfn is NULL:
-                searchfn = opalSearchDatabaseNEON
-        if searchfn is NULL:
-            raise RuntimeError("No supported SIMD backend available")
+            # Prepare list of results
+            res_array = PyMem_Malloc(sizeof(OpalSearchResult*) * size)
+            results_raw.reserve(size)
+            results = PyList_New(size)
+            for i in range(size):
+                result = result_type.__new__(result_type)
+                result._target_index = i
+                Py_INCREF(result)
+                PyList_SET_ITEM(results, i, result)
+                results_raw.push_back(&result._result)
 
-        # Run search pipeline in nogil mode
-        with nogil:
-            retcode = searchfn(
-                query,
-                length,
-                self._sequences.data(),
-                self._sequences.size(),
-                self._lengths.data(),
-                gap_open,
-                gap_extend,
-                self.score_matrix._mx.getMatrix(),
-                self.score_matrix._mx.getAlphabetLength(),
-                results_raw.data(),
-                _mode,
-                _algo,
-                _overflow,
-            )
+            # Select best available SIMD backend
+            IF AVX2_BUILD_SUPPORT:
+                if _AVX2_RUNTIME_SUPPORT and searchfn is NULL:
+                    searchfn = opalSearchDatabaseAVX2
+            IF SSE4_BUILD_SUPPORT:
+                if _SSE4_RUNTIME_SUPPORT and searchfn is NULL:
+                    searchfn = opalSearchDatabaseSSE4
+            IF SSE2_BUILD_SUPPORT:
+                if _SSE2_RUNTIME_SUPPORT and searchfn is NULL:
+                    searchfn = opalSearchDatabaseSSE2
+            IF NEON_BUILD_SUPPORT:
+                if _NEON_RUNTIME_SUPPORT and searchfn is NULL:
+                    searchfn = opalSearchDatabaseNEON
+            if searchfn is NULL:
+                raise RuntimeError("No supported SIMD backend available")
 
-        # free memory for the query
+            # Run search pipeline in nogil mode
+            with nogil:
+                retcode = searchfn(
+                    query,
+                    length,
+                    self._sequences.data(),
+                    self._sequences.size(),
+                    self._lengths.data(),
+                    gap_open,
+                    gap_extend,
+                    self.score_matrix._mx.getMatrix(),
+                    self.score_matrix._mx.getAlphabetLength(),
+                    results_raw.data(),
+                    _mode,
+                    _algo,
+                    _overflow,
+                )
+
+        # free memory used for the query
         PyMem_Free(query)
 
-        # check the alignment worked
+        # check the alignment worked and return results
         if retcode != 0:
             raise RuntimeError(f"Failed to run search Opal database (code={retcode})")
         return results
