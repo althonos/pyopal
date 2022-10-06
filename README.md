@@ -87,12 +87,39 @@ print(best.score, best.target_index, database[best.target_index])
 You can also get the alignment for every target, but this must be enabled
 when searching the database:
 ```python
-results = database.search("MESVLDLQELETSEEESALMAASTISQNC", mode="full", algorithm="nw")
+results = database.search("MESVLDLQELETSEEESALMAASTISQNC", mode="full")
 for result in results:
     print(result.score, result.identity(), result.cigar())
 ```
 
-<!-- ## 🧶 Thread-safety -->
+## 🧶 Thread-safety
+
+`Database` objects are thread safe through a
+[C++17 read/write lock](https://en.cppreference.com/w/cpp/thread/shared_mutex)
+that prevents modification while the database is searched. In addition, the
+`Database.search`  method is re-entrant and can be safely used to query the same
+database in parallel with different queries across different threads:
+
+```python
+import multiprocessing.pool
+import pyopal
+import Bio.SeqIO
+
+queries = [
+    "MEQQIELDVLEISDLIAGAGENDDLAQVMAASCTTSSVSTSSSSSSS",
+    "MTQIKVPTALIASVHGEGQHLFEPMAARCTCTTIISSSSTF",
+    "MGAIAKLVAKFGWPIVKKYYKQIMQFIGEGWAINKIIDWIKKHI",
+    "MGPVVVFDCMTADFLNDDPNNAELSALEMEELESWGAWDGEATS",
+]
+
+database = pyopal.Database([
+    str(record.seq)
+    for record in Bio.SeqIO.parse("vendor/opal/test_data/db/uniprot_sprot12071.fasta", "fasta")
+])
+
+with multiprocessing.pool.ThreadPool() as pool:
+    hits = dict(pool.map(lambda q: (q, database.search(q)), queries))
+```
 
 
 <!-- ## ⏱️ Benchmarks -->
