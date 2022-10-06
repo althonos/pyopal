@@ -1,0 +1,19 @@
+include COPYING
+include CHANGELOG.md
+include CONTRIBUTING.md
+include README.md
+
+recursive-include include             *.pxd
+recursive-include patches             *.patch
+recursive-include pyopal/tests        *.py requirements.txt
+
+recursive-include vendor/opal         README.md LICENSE AUTHORS CHANGELOG CMakeLists.txt
+recursive-include vendor/opal/src     *.cpp *.h *.hpp
+
+recursive-include vendor/cpu_features         README.md LICENSE CONTRIBUTING.md
+recursive-include vendor/cpu_features/src     *.c *.inl
+recursive-include vendor/cpu_features/include *.h
+
+recursive-include pyopal            *.py *.pyi *.pyx *.pxd *.h py.typed
+recursive-exclude pyopal            *.cpp *.html
+
