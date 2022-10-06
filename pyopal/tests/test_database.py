@@ -52,3 +52,39 @@ class TestDatabase(unittest.TestCase):
         database = pyopal.Database(sequences)
         unpickled = pickle.loads(pickle.dumps(database))
         self.assertEqual(list(unpickled), sequences)
+
+    def test_insert(self):
+        sequences = ["ATGC", "ATTC"]
+        database = pyopal.Database(sequences)
+        database.insert(1, "TTCC")
+        self.assertEqual(list(database), ["ATGC", "TTCC", "ATTC"])
+        database.insert(-10, "TTTT")
+        self.assertEqual(list(database), ["TTTT", "ATGC", "TTCC", "ATTC"])
+        database.insert(10, "AAAA")
+        self.assertEqual(list(database), ["TTTT", "ATGC", "TTCC", "ATTC", "AAAA"])
+
+    def test_delitem(self):
+        sequences = ["ATGC", "ATTC", "TTCG"]
+        database = pyopal.Database(sequences)
+        self.assertEqual(list(database), sequences)
+        del database[1]
+        self.assertEqual(list(database), ["ATGC", "TTCG"])
+        del database[-2]
+        self.assertEqual(list(database), ["TTCG"])
+        del database[0]
+        self.assertEqual(list(database), [])
+        with self.assertRaises(IndexError):
+            del database[0]
+        with self.assertRaises(IndexError):
+            del database[-1]
+
+    def test_setitem(self):
+        sequences = ["ATGC", "ATTC", "TTCG"]
+        database = pyopal.Database(sequences)
+        self.assertEqual(list(database), sequences)
+        database[2] = "AAAT"
+        self.assertEqual(list(database), ["ATGC", "ATTC", "AAAT"])
+        with self.assertRaises(IndexError):
+            database[-8] = "TCGA"
+        with self.assertRaises(IndexError):
+            database[5] = "TCGA"

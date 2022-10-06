@@ -54,7 +54,6 @@ cdef extern from "<algorithm>" namespace "std" nogil:
 
 # --- Python imports -----------------------------------------------------------
 
-import enum
 import operator
 
 
@@ -197,12 +196,6 @@ cdef inline void encode_bytes(const unsigned char[:] sequence, char* lut, seq_t*
 
 
 # --- Python classes -----------------------------------------------------------
-
-class AlignmentOperation(enum.IntEnum):
-    Match = 0
-    Deletion = 1
-    Insertion = 2
-    Mismatch = 3
 
 cdef class ScoreMatrix:
     """A score matrix for comparing character matches in sequences.
@@ -504,21 +497,17 @@ cdef class FullResult(EndResult):
 
         return "".join(chunks)
 
-    def identity(self):
+    cpdef float identity(self):
         """identity(self)\n--
 
         Compute the identity of the alignment.
 
         """
+        assert self._result.alignment is not NULL
         cdef size_t         length = self._result.alignmentLength
         cdef unsigned char* ali    = self._result.alignment
-
-        if length == 0 or ali is None:
-            return None
-
         cdef int matches    = count(&ali[0], &ali[length], opal.OPAL_ALIGN_MATCH)
         cdef int mismatches = count(&ali[0], &ali[length], opal.OPAL_ALIGN_MISMATCH)
-
         return (<float> matches) / (<float> (matches + mismatches))
 
 
@@ -583,6 +572,40 @@ cdef class Database:
 
         return decoded.decode("ascii")
 
+    def __setitem__(self, ssize_t index, object sequence):
+        cdef int     length
+        cdef seq_t   encoded
+        cdef ssize_t index_  = index
+        cdef size_t  size    = self._sequences.size()
+
+        if index_ < 0:
+            index_ += size
+        if index_ < 0 or (<size_t> index_) >= size:
+            raise IndexError(index)
+
+        if isinstance(sequence, str):
+            encode_str(sequence, self.score_matrix._ahash, &encoded, &length)
+        else:
+            encode_bytes(sequence, self.score_matrix._ahash, &encoded, &length)
+        
+        PyMem_Free(self._sequences[index_])
+        self._sequences[index_] = encoded
+        self._lengths[index_] = length
+
+    def __delitem__(self, ssize_t index):
+        cdef int     length
+        cdef seq_t   encoded
+        cdef ssize_t index_  = index
+        cdef size_t  size    = self._sequences.size()
+
+        if index_ < 0:
+            index_ += size
+        if index_ < 0 or (<size_t> index_) >= size:
+            raise IndexError(index)
+
+        self._sequences.erase(<vector[seq_t].iterator> &self._sequences[index_])
+        self._lengths.erase(<vector[int].iterator> &self._lengths[index_])
+
     cpdef void clear(self) except *:
         """clear(self)\n--
 
@@ -638,6 +661,26 @@ cdef class Database:
         reverse(self._sequences.begin(), self._sequences.end())
         reverse(self._lengths.begin(), self._lengths.end())
 
+    cpdef void insert(self, ssize_t index, object sequence):
+        cdef int     length
+        cdef seq_t   encoded
+        cdef ssize_t index_  = index
+        cdef size_t  size    = self._sequences.size()
+
+        if index_ < 0:
+            index_ = 0
+        elif (<size_t> index_) >= size:
+            index_ = size
+
+        if isinstance(sequence, str):
+            encode_str(sequence, self.score_matrix._ahash, &encoded, &length)
+        else:
+            encode_bytes(sequence, self.score_matrix._ahash, &encoded, &length)
+        
+        self._sequences.insert(<vector[seq_t].iterator> &self._sequences[index_], encoded)
+        self._lengths.insert(<vector[int].iterator> &self._lengths[index_], length)
+
+   
     # --- Opal search ----------------------------------------------------------
 
     def search(
