@@ -2,13 +2,15 @@
 from ._version import __version__
 
 __author__ = "Martin Larralde <martin.larralde@embl.de>"
-__license__ = "GPLv3"
+__license__ = "MIT"
 
 from . import _opal
 from ._opal import (
     Database,
-    SearchResult,
     ScoreMatrix,
+    ScoreResult,
+    EndResult,
+    FullResult,
 )
 
 # Small addition to the docstring: we want to show a link redirecting to the

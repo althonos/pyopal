@@ -66,6 +66,12 @@ cdef dict _OPAL_SEARCH_MODES = {
     "full": opal.OPAL_SEARCH_ALIGNMENT,
 }
 
+cdef dict _OPAL_SEARCH_RESULTS = {
+    "score": ScoreResult,
+    "end": EndResult,
+    "full": FullResult,
+}
+
 cdef dict _OPAL_OVERFLOW_MODES = {
     "simple": opal.OPAL_OVERFLOW_SIMPLE,
     "buckets": opal.OPAL_OVERFLOW_BUCKETS,
@@ -338,9 +344,7 @@ cdef class ScoreMatrix:
         ]
 
 
-
-cdef class SearchResult:
-
+cdef class ScoreResult:
     cdef ssize_t          _target_index
     cdef OpalSearchResult _result
 
@@ -357,56 +361,21 @@ cdef class SearchResult:
     def __dealloc__(self):
         PyMem_Free(self._result.alignment)
 
-    def __init__(
-        self,
-        size_t target_index,
-        int score,
-        *,
-        query_end=None,
-        target_end=None,
-        query_start=None,
-        target_start=None,
-        str alignment=None,
-    ):
+    def __init__(self, size_t target_index, int score):
         self._target_index = target_index
         self._result.score = score
         self._result.scoreSet = True
 
-        if (query_end is None) != (target_end is None):
-            raise ValueError("Both `query_end` and `target_end` must be set")
-        if (query_start is None) != (target_start is None):
-            raise ValueError("Both `query_start` and `target_start` must be set")
-
-        if query_end is not None:
-            self._result.endLocationQuery = query_end
-        if target_end is not None:
-            self._result.endLocationTarget = target_end
-        if query_start is not None:
-            self._result.startLocationQuery = query_start
-        if target_start is not None:
-            self._result.startLocationTarget = query_start
-        if alignment is not None:
-            self._result.alignmentLength = len(alignment)
-            self._result.alignment = <unsigned char*> PyMem_Realloc(self._result.alignment, self._result.alignmentLength * sizeof(unsigned char))
-            for i, x in enumerate(alignment):
-                self._result.alignment[i] = _OPAL_ALIGNMENT_OPERATION[x]
-
     def __repr__(self):
-        assert self._result.scoreSet
+        cdef str ty = type(self).__name__
+        return f"{ty}({self.target_index}, score={self.score!r})"
 
-        cdef str ty    = type(self).__name__
-        cdef list args = [f"target_index={self._target_index}", f"score={self.score}"]
-
-        if self._result.endLocationQuery >= 0 and self._result.endLocationTarget >= 0:
-            args.append(f"query_end={self._result.endLocationQuery!r}")
-            args.append(f"target_end={self._result.endLocationTarget!r}")
-        if self._result.startLocationQuery >= 0 and self._result.startLocationTarget >= 0:
-            args.append(f"query_start={self._result.startLocationQuery!r}")
-            args.append(f"target_start={self._result.startLocationTarget!r}")
-        if self._result.alignmentLength > 0:
-            args.append(f"alignment={self.alignment!r}")
-            
-        return "{}({})".format(ty, ", ".join(args))
+    @property
+    def target_index(self):
+        """`int`: The index of the target in the database.
+        """
+        assert self._target_index >= 0
+        return self._target_index
 
     @property
     def score(self):
@@ -415,28 +384,76 @@ cdef class SearchResult:
         assert self._result.scoreSet
         return self._result.score
 
-    @property
-    def query_start(self):
-        return None if self._result.startLocationQuery == -1 else self._result.startLocationQuery
+
+cdef class EndResult(ScoreResult):
+    def __init__(
+        self,
+        size_t target_index,
+        int score,
+        int query_end,
+        int target_end,
+    ):
+        super().__init__(target_index, score)
+        self._result.endLocationQuery = query_end
+        self._result.endLocationTarget = target_end
+
+    def __repr__(self):
+        cdef str ty = type(self).__name__
+        return (
+            f"{ty}({self.target_index}, "
+            f"score={self.score!r}, "
+            f"query_end={self.query_end!r}, "
+            f"target_end={self.target_end!r})"
+        )
 
     @property
     def query_end(self):
         return None if self._result.endLocationQuery == -1 else self._result.endLocationQuery
 
     @property
-    def target_start(self):
-        return None if self._result.startLocationTarget == -1 else self._result.startLocationTarget
-
-    @property
     def target_end(self):
         return None if self._result.endLocationTarget == -1 else self._result.endLocationTarget
 
+
+
+cdef class FullResult(EndResult):
+    def __init__(
+        self,
+        size_t target_index,
+        int score,
+        int query_end,
+        int target_end,
+        int query_start,
+        int target_start,
+        str alignment not None,
+    ):
+        super().__init__(target_index, score, query_end, target_end)
+        self._result.startLocationQuery = query_start
+        self._result.startLocationTarget = target_start
+        self._result.alignmentLength = len(alignment)
+        self._result.alignment = <unsigned char*> PyMem_Realloc(self._result.alignment, self._result.alignmentLength * sizeof(unsigned char))
+        for i, x in enumerate(alignment):
+            self._result.alignment[i] = _OPAL_ALIGNMENT_OPERATION[x]
+
+    def __repr__(self):
+        cdef str ty = type(self).__name__
+        return (
+            f"{ty}({self.target_index}, "
+            f"score={self.score!r}, "
+            f"query_end={self.query_end!r}, "
+            f"target_end={self.target_end!r})"
+            f"query_start={self.query_start!r}, "
+            f"target_start={self.target_start!r}, "
+            f"alignment={self.alignment!r}, "
+        )
+
     @property
-    def target_index(self):
-        """`int`: The index of the target in the database.
-        """
-        assert self._target_index >= 0
-        return self._target_index
+    def query_start(self):
+        return None if self._result.startLocationQuery == -1 else self._result.startLocationQuery
+
+    @property
+    def target_start(self):
+        return None if self._result.startLocationTarget == -1 else self._result.startLocationTarget
 
     @property
     def alignment(self):
@@ -686,7 +703,8 @@ cdef class Database:
         cdef size_t                       i
         cdef int                          retcode
         cdef int                          length
-        cdef SearchResult                 result
+        cdef ScoreResult                  result
+        cdef type                         result_type                       
         cdef list                         results
         cdef vector[OpalSearchResult_ptr] results_raw
         cdef size_t                       size        = self._sequences.size()
@@ -696,6 +714,7 @@ cdef class Database:
         # validate parameters
         if mode in _OPAL_SEARCH_MODES:
             _mode = _OPAL_SEARCH_MODES[mode]
+            result_type = _OPAL_SEARCH_RESULTS[mode]
         else:
             raise ValueError(f"Invalid search mode: {mode!r}")
         if overflow in _OPAL_OVERFLOW_MODES:
@@ -718,7 +737,7 @@ cdef class Database:
         results_raw.reserve(size)
         results = PyList_New(size)
         for i in range(size):
-            result = SearchResult.__new__(SearchResult)
+            result = result_type.__new__(result_type)
             result._target_index = i
             Py_INCREF(result)
             PyList_SET_ITEM(results, i, result)
