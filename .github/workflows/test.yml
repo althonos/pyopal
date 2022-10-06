@@ -85,7 +85,6 @@ jobs:
     runs-on: macos-latest
     env:
       OS: OSX
-      MACOSX_DEPLOYMENT_TARGET: "10.12"
     strategy:
       fail-fast: false
       matrix:
