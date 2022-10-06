@@ -49,6 +49,7 @@ cdef extern from "<cctype>" namespace "std" nogil:
 
 cdef extern from "<algorithm>" namespace "std" nogil:
     cdef void reverse[T](T, T)
+    cdef int  count[T, V](T, T, V)
 
 
 # --- Python imports -----------------------------------------------------------
@@ -485,6 +486,23 @@ cdef class SearchResult:
         chunks.append(symbols[current])
 
         return "".join(chunks)
+
+    def identity(self):
+        """identity(self)\n--
+
+        Compute the identity of the alignment.
+
+        """
+        cdef size_t         length = self._result.alignmentLength
+        cdef unsigned char* ali    = self._result.alignment
+
+        if length == 0 or ali is None:
+            return None
+
+        cdef int matches    = count(&ali[0], &ali[length], opal.OPAL_ALIGN_MATCH)
+        cdef int mismatches = count(&ali[0], &ali[length], opal.OPAL_ALIGN_MISMATCH)
+
+        return (<float> matches) / (<float> (matches + mismatches))
 
 
 cdef class Database:
