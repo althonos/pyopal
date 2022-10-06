@@ -1,3 +1,4 @@
+import pickle
 import unittest
 
 import pyopal
@@ -45,3 +46,9 @@ class TestDatabase(unittest.TestCase):
         self.assertEqual(len(database), 0)
         database.reverse()
         self.assertEqual(len(database), 0)
+
+    def test_pickle(self):
+        sequences = ["ATGC", "ATTC", "TTCG"]
+        database = pyopal.Database(sequences)
+        unpickled = pickle.loads(pickle.dumps(database))
+        self.assertEqual(list(unpickled), sequences)

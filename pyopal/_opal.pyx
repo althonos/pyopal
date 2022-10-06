@@ -307,6 +307,36 @@ cdef class ScoreMatrix:
         # record the matrix
         self._mx = opal.score_matrix.ScoreMatrix(abcvector, scores)
 
+    def __repr__(self):
+        cdef str ty = type(self).__name__
+        return f"{ty}({self.alphabet!r}, {self.matrix!r})"
+
+    def __reduce__(self):
+        return (type(self), (self.alphabet, self.matrix))
+
+    @property
+    def alphabet(self):
+        """`str`: The score matrix alphabet.
+        """
+        cdef int         length   = self._mx.getAlphabetLength()
+        cdef const char* alphabet = <char*> self._mx.getAlphabet()
+        return PyBytes_FromStringAndSize(alphabet, length).decode('ascii')
+
+    @property
+    def matrix(self):
+        """`list` of `list` of `int`: The score matrix.
+        """
+        cdef int        i
+        cdef int        j
+        cdef int        length = self._mx.getAlphabetLength()
+        cdef const int* scores = self._mx.getMatrix()
+
+        return [
+            [ scores[i*length + j] for j in range(length) ]
+            for i in range(length)
+        ]
+
+
 
 cdef class SearchResult:
 
@@ -490,6 +520,8 @@ cdef class Database:
         for i in range(self._sequences.size()):
             PyMem_Free(self._sequences[i])
 
+    def __reduce__(self):
+        return (type(self), ((), self.score_matrix), None, iter(self))
 
     # --- Sequence interface ---------------------------------------------------
 
