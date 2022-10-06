@@ -1,5 +1,5 @@
 # distutils: language = c++
-# cython: language_level=3, linetrace=True, embedsignature=True, binding=True
+# cython: language_level=3, linetrace=True, binding=True
 """Bindings to Opal, a SIMD-accelerated pairwise sequence aligner.
 
 References:
@@ -14,8 +14,11 @@ References:
 
 from libc.string cimport memset
 from libc.limits cimport UCHAR_MAX
+from libcpp.string cimport string
 from libcpp.vector cimport vector
 
+from cpython cimport Py_INCREF
+from cpython.list cimport PyList_New, PyList_SET_ITEM
 from cpython.bytes cimport PyBytes_AsString, PyBytes_FromStringAndSize
 from cpython.mem cimport PyMem_Malloc, PyMem_Realloc, PyMem_Free
 from _unicode cimport (
@@ -107,8 +110,9 @@ ELIF TARGET_CPU == "aarch64":
 
 # --- Type definitions ---------------------------------------------------------
 
-ctypedef unsigned char digit_t
-ctypedef digit_t*      seq_t
+ctypedef unsigned char     digit_t
+ctypedef digit_t*          seq_t
+ctypedef OpalSearchResult* OpalSearchResult_ptr
 
 ctypedef int (*searchfn_t)(
     unsigned char*,
@@ -291,68 +295,46 @@ cdef class ScoreMatrix:
         self._mx = opal.score_matrix.ScoreMatrix(abcvector, scores)
 
 
-cdef class SearchResults:
-    cdef OpalSearchResult** _results
-    cdef size_t             _size
+cdef class SearchResult:
+
+    cdef ssize_t          _target_index
+    cdef OpalSearchResult _result
 
     def __cinit__(self):
-        self._results = NULL
-        self._size = 0
-
-    def __dealloc__(self):
-        PyMem_Free(self._results)
-
-    def __len__(self):
-        return self._size
-
-    def __getitem__(self, ssize_t index):
-        cdef ssize_t index_ = index
-        if index_ < 0:
-            index_ += self._size
-        if index_ < 0 or index_ >= self._size:
-            raise IndexError(index)
-
-        cdef SearchResult result = SearchResult.__new__(SearchResult)
-        result._result = self._results[index_]
-        result._owner  = self
-        return result
-
-
-cdef class SearchResult:
-    cdef SearchResults     _owner
-    cdef OpalSearchResult* _result
+        self._target_index = -1
+        self._result.scoreSet = 0
+        self._result.startLocationQuery = -1
+        self._result.startLocationTarget = -1
+        self._result.endLocationQuery = -1
+        self._result.endLocationTarget = -1
+        self._result.alignmentLength = 0
+        self._result.alignment = NULL
 
     @property
     def score(self):
-        assert self._result is not NULL
         return self._result.score if self._result.scoreSet else None
 
     @property
     def query_start(self):
-        assert self._result is not NULL
         return None if self._result.startLocationQuery == -1 else self._result.startLocationQuery
 
     @property
     def query_end(self):
-        assert self._result is not NULL
         return None if self._result.endLocationQuery == -1 else self._result.endLocationQuery
 
     @property
     def target_start(self):
-        assert self._result is not NULL
         return None if self._result.startLocationTarget == -1 else self._result.startLocationTarget
 
     @property
     def target_end(self):
-        assert self._result is not NULL
         return None if self._result.endLocationTarget == -1 else self._result.endLocationTarget
 
     @property
     def alignment(self):
-        assert self._result is not NULL
         if self._result.alignment is NULL:
             return None
-        return PyBytes_FromStringAndSize(<char*> self._result.alignment, self._result.alignmentLength)
+        raise NotImplementedError("pyopal.Alignment")
 
 
 cdef class Database:
@@ -360,7 +342,7 @@ cdef class Database:
 
     Like many biological sequence analysis tools, Opal encodes sequences
     with an alphabet for faster indexing of matrices. Sequences inserted in
-    a  database are stored in encoded format using the alphabet of the
+    a database are stored in encoded format using the alphabet of the
     `ScoreMatrix` given on instantiation.
 
     """
@@ -516,9 +498,9 @@ cdef class Database:
             :math:`E + (N - 1)G`.
 
         Returns:
-            `pyopal.SearchResults`: A list containing one `SearchResult`
-                object for each target sequence in the database, containing
-                scores, and optionally coordinates and alignments.
+            `list` of `pyopal.SearchResult`: A list containing one 
+                `SearchResult` object for each target sequence in the database, 
+                containing scores, and optionally coordinates and alignments.
 
         Raises:
             `ValueError`: When ``sequence`` contains invalid characters
@@ -528,16 +510,18 @@ cdef class Database:
         """
         assert self.score_matrix is not None
 
-        cdef int             _mode
-        cdef int             _overflow
-        cdef int             _algo
-        cdef size_t          i
-        cdef int             retcode
-        cdef int             length
-        cdef size_t          size      = self._sequences.size()
-        cdef seq_t           query     = NULL
-        cdef searchfn_t      searchfn  = NULL
-        cdef SearchResults   results   = SearchResults.__new__(SearchResults)
+        cdef int                          _mode
+        cdef int                          _overflow
+        cdef int                          _algo
+        cdef size_t                       i
+        cdef int                          retcode
+        cdef int                          length
+        cdef SearchResult                 result
+        cdef list                         results 
+        cdef vector[OpalSearchResult_ptr] results_raw  
+        cdef size_t                       size        = self._sequences.size()
+        cdef seq_t                        query       = NULL
+        cdef searchfn_t                   searchfn    = NULL
 
         # validate parameters
         if mode in _OPAL_SEARCH_MODES:
@@ -559,19 +543,16 @@ cdef class Database:
         else:
             encode_bytes(sequence, self.score_matrix._ahash, &query, &length)
 
-        # Prepare array of results
-        results._size    = size
-        results._results = <OpalSearchResult**> PyMem_Malloc(size * sizeof(OpalSearchResult*))
+        # Prepare list of results
+        res_array = PyMem_Malloc(sizeof(OpalSearchResult*) * size)
+        results_raw.reserve(size)
+        results = PyList_New(size)
         for i in range(size):
-            results._results[i] = <OpalSearchResult*> PyMem_Malloc(sizeof(OpalSearchResult))
-            # opal.opalInitSearchResult(results._results[i])
-            results._results[i].scoreSet = 0
-            results._results[i].startLocationQuery = -1
-            results._results[i].startLocationTarget = -1
-            results._results[i].endLocationQuery = -1
-            results._results[i].endLocationTarget = -1
-            results._results[i].alignmentLength = 0
-            results._results[i].alignment = NULL
+            result = SearchResult.__new__(SearchResult)
+            result._target_index = i
+            Py_INCREF(result)
+            PyList_SET_ITEM(results, i, result)
+            results_raw.push_back(&result._result)
 
         # Select best available SIMD backend
         IF AVX2_BUILD_SUPPORT:
@@ -601,7 +582,7 @@ cdef class Database:
                 gap_extend,
                 self.score_matrix._mx.getMatrix(),
                 self.score_matrix._mx.getAlphabetLength(),
-                results._results,
+                results_raw.data(),
                 _mode,
                 _algo,
                 _overflow,

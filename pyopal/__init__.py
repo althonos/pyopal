@@ -7,7 +7,6 @@ __license__ = "GPLv3"
 from . import _opal
 from ._opal import (
     Database,
-    SearchResults,
     SearchResult,
     ScoreMatrix,
 )
