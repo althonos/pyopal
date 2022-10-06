@@ -229,9 +229,9 @@ cdef class ScoreMatrix:
 
         Arguments:
             alphabet (`str`): The alphabet of the similarity matrix.
-                If the alphabet contains the ``*`` character, it is 
-                treated as a wildcard for any unknown symbol in the 
-                query or target sequences. 
+                If the alphabet contains the ``*`` character, it is
+                treated as a wildcard for any unknown symbol in the
+                query or target sequences.
             matrix (`~numpy.typing.ArrayLike` of `int`): The scoring matrix,
                 as a square matrix indexed by the alphabet characters.
 
@@ -259,7 +259,7 @@ cdef class ScoreMatrix:
         cdef object        row
         cdef int           value
         cdef str           letter
-        cdef char          unknown  
+        cdef char          unknown
         cdef int           length    = len(matrix)
         cdef vector[uchar] abcvector = vector[uchar](length, 0)
         cdef vector[int]   scores    = vector[int](length*length, 0)
@@ -299,9 +299,11 @@ cdef class SearchResult:
 
     cdef ssize_t          _target_index
     cdef OpalSearchResult _result
+    cdef Alignment        _alignment
 
     def __cinit__(self):
         self._target_index = -1
+        self._alignment = None
         self._result.scoreSet = 0
         self._result.startLocationQuery = -1
         self._result.startLocationTarget = -1
@@ -310,9 +312,53 @@ cdef class SearchResult:
         self._result.alignmentLength = 0
         self._result.alignment = NULL
 
+    def __repr__(self):
+        assert self._result.scoreSet
+
+        cdef str ty    = type(self).__name__
+        cdef list args = [f"target_index={self._target_index}", f"score={self.score}"]
+
+        if self._result.endLocationQuery >= 0 and self._result.endLocationTarget >= 0:
+            args.append(f"query_end={self._result.endLocationQuery}")
+            args.append(f"target_end={self._result.endLocationTarget}")
+        if self._result.startLocationQuery >= 0 and self._result.startLocationTarget >= 0:
+            args.append(f"query_start={self._result.startLocationQuery}")
+            args.append(f"target_start={self._result.startLocationTarget}")
+
+        return "{}({})".format(ty, ", ".join(args))
+
+    def __init__(
+        self,
+        size_t target_index,
+        int score,
+        *,
+        query_end=None,
+        target_end=None,
+        query_start=None,
+        target_start=None,
+    ):
+        self._target_index = target_index
+        self._result.score = score
+        self._result.scoreSet = True
+
+        if (query_end is None) != (target_end is None):
+            raise ValueError("Both `query_end` and `target_end` must be set")
+        if (query_start is None) != (target_start is None):
+            raise ValueError("Both `query_start` and `target_start` must be set")
+
+        if query_end is not None:
+            self._result.endLocationQuery = query_end
+        if target_end is not None:
+            self._result.endLocationTarget = target_end
+        if query_start is not None:
+            self._result.startLocationQuery = query_start
+        if target_start is not None:
+            self._result.startLocationTarget = query_start
+
     @property
     def score(self):
-        return self._result.score if self._result.scoreSet else None
+        assert self._result.scoreSet
+        return self._result.score
 
     @property
     def query_start(self):
@@ -331,10 +377,12 @@ cdef class SearchResult:
         return None if self._result.endLocationTarget == -1 else self._result.endLocationTarget
 
     @property
+    def target_index(self):
+        return None if self._target_index < 0 else self._target_index
+
+    @property
     def alignment(self):
-        if self._result.alignment is NULL:
-            return None
-        raise NotImplementedError("pyopal.Alignment")
+        return self._alignment
 
 
 cdef class Database:
@@ -498,8 +546,8 @@ cdef class Database:
             :math:`E + (N - 1)G`.
 
         Returns:
-            `list` of `pyopal.SearchResult`: A list containing one 
-                `SearchResult` object for each target sequence in the database, 
+            `list` of `pyopal.SearchResult`: A list containing one
+                `SearchResult` object for each target sequence in the database,
                 containing scores, and optionally coordinates and alignments.
 
         Raises:
@@ -517,8 +565,8 @@ cdef class Database:
         cdef int                          retcode
         cdef int                          length
         cdef SearchResult                 result
-        cdef list                         results 
-        cdef vector[OpalSearchResult_ptr] results_raw  
+        cdef list                         results
+        cdef vector[OpalSearchResult_ptr] results_raw
         cdef size_t                       size        = self._sequences.size()
         cdef seq_t                        query       = NULL
         cdef searchfn_t                   searchfn    = NULL
@@ -591,9 +639,15 @@ cdef class Database:
         # free memory for the query
         PyMem_Free(query)
 
-        # return results or raise an exception on failure
+        # check the alignment worked
         if retcode != 0:
             raise RuntimeError(f"Failed to run search Opal database (code={retcode})")
+
+        # create alignment objects if needed
+        if _mode == opal.OPAL_SEARCH_ALIGNMENT:
+            for result in results:
+                result._alignment = Alignment.__new__(Alignment)
+
         return results
 
 
