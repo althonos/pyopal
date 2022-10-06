@@ -21,25 +21,25 @@
 
 ## 🗺️ Overview
 
-[Opal](https://github.com/Martinsos/opal) is a sequence aligner enabling fast 
-sequence similarity search using either of the Smith-Waterman, semi-global or 
-Needleman-Wunsch algorithms. 
+[Opal](https://github.com/Martinsos/opal) is a sequence aligner enabling fast
+sequence similarity search using either of the Smith-Waterman, semi-global or
+Needleman-Wunsch algorithms.
 
 PyOpal is a Python module that provides bindings to [Opal](https://github.com/Martinsos/opal)
 using [Cython](https://cython.org/). It implements a user-friendly, Pythonic
-interface to query a database of sequences and access the search results. It 
-interacts with the Opal interface rather than with the CLI, which has the 
+interface to query a database of sequences and access the search results. It
+interacts with the Opal interface rather than with the CLI, which has the
 following advantages:
 
 - **single dependency**: PyOpal is distributed as a Python package, so you
   can add it as a dependency to your project, and stop worrying about the
   Opal binary being present on the end-user machine.
 - **no intermediate files**: Everything happens in memory, in a Python object
-  you control, so you don't have to invoke the Opal CLI using a sub-process 
+  you control, so you don't have to invoke the Opal CLI using a sub-process
   and temporary files.
-- **better portability**: Opal uses SIMD to accelerate alignment scoring, but 
-  doesn't support dynamic dispatch, so it has to be compiled on the local 
-  machine to be able to use the full capabilities of the local CPU. PyOpal 
+- **better portability**: Opal uses SIMD to accelerate alignment scoring, but
+  doesn't support dynamic dispatch, so it has to be compiled on the local
+  machine to be able to use the full capabilities of the local CPU. PyOpal
   ships several versions of Opal instead, each compiled with different target
   features, and selects the best one for the local platform at runtime.
 
@@ -59,11 +59,38 @@ $ pip install pyopal
 <!-- Otherwise, PyOpal is also available as a [Bioconda](https://bioconda.github.io/)
 package:
 ```console
-$ conda install -c bioconda pytrimal
+$ conda install -c bioconda pyopal
 ``` -->
 
-<!-- ## 💡 Example -->
+## 💡 Example
 
+Create a database from some reference sequences:
+```python
+import pyopal
+
+database = pyopal.Database([
+    "MESILDLQELETSEEESALMAASTVSNNC",                         # goadvionin A
+    "MKKAVIVENKGCATCSIGAACLVDGPIPDFEIAGATGLFGLWG",           # subtilosin A
+    "MAGFLKVVQILAKYGSKAVQWAWANKGKILDWINAGQAIDWVVEKIKQILGIK", # lacticin Z
+    "MTQIKVPTALIASVHGEGQHLFEPMAARCTCTTIISSSSTF",             # plantazolicin
+])
+```
+
+Then search it with a query sequence, and show the target sequence with the
+highest score:
+```python
+results = database.search("MAGFLKVVQLLAKYGSKAVQWAWANKGKILDWLNAGQAIDWVVSKIKQILGIK")
+best = max(results, key=lambda result: result.score)
+print(best.score, best.target_index, database[best.target_index])
+```
+
+You can also get the alignment for every target, but this must be enabled
+when searching the database:
+```python
+results = database.search("MESVLDLQELETSEEESALMAASTISQNC", mode="full", algorithm="nw")
+for result in results:
+    print(result.score, result.identity(), result.cigar())
+```
 
 <!-- ## 🧶 Thread-safety -->
 
@@ -101,7 +128,7 @@ This library is provided under the [MIT License](https://choosealicense.com/lice
 Opal is developed by [Martin Šošić](https://github.com/Martinsos) and is distributed under the
 terms of the MIT License as well. See `vendor/opal/LICENSE` for more information.
 The `cpu_features` library was written by [Guillaume Chatelet](https://github.com/gchatelet) and is
-licensed under the terms of the [Apache License 2.0](https://choosealicense.com/licenses/apache-2.0/). 
+licensed under the terms of the [Apache License 2.0](https://choosealicense.com/licenses/apache-2.0/).
 See `vendor/cpu_features/LICENSE` for more information.
 
 *This project is in no way not affiliated, sponsored, or otherwise endorsed
