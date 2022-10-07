@@ -59,13 +59,6 @@ cdef extern from "<shared_mutex>" namespace "std" nogil:
         void lock_shared()
         void unlock_shared()
 
-cdef extern from * nogil:
-    """
-    template<class T> 
-    void erase(std::vector<T>& v, size_t index) { v.erase(v.at(index)); }
-    """
-
-    cdef void erase[T](vector[T]& v, size_t index)
 
 # --- Python imports -----------------------------------------------------------
 
@@ -800,9 +793,12 @@ cdef class Database:
             :math:`E + (N - 1)G`.
 
         Returns:
-            `list` of `pyopal.SearchResult`: A list containing one
-                `SearchResult` object for each target sequence in the database,
-                containing scores, and optionally coordinates and alignments.
+            `list` of `pyopal.ScoreResult`: A list containing one
+                `ScoreResult` object for each target sequence in the 
+                database. The actual type depends on the requested 
+                ``mode``: it will be a `ScoreResult` for mode ``score``, 
+                `EndResult` for mode ``end`` and `FullResult` for mode
+                ``full``.
 
         Raises:
             `ValueError`: When ``sequence`` contains invalid characters
