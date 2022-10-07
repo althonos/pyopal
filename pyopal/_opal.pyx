@@ -18,6 +18,7 @@ from libcpp.string cimport string
 from libcpp.vector cimport vector
 
 from cpython cimport Py_INCREF
+from cpython.buffer cimport PyBUF_FORMAT
 from cpython.list cimport PyList_New, PyList_SET_ITEM
 from cpython.bytes cimport PyBytes_AsString, PyBytes_FromStringAndSize
 from cpython.mem cimport PyMem_Malloc, PyMem_Realloc, PyMem_Free
@@ -255,6 +256,7 @@ cdef class ScoreMatrix:
     cdef opal.score_matrix.ScoreMatrix _mx
     cdef char                          _ahash[UCHAR_MAX]
     cdef char                          _unknown
+    cdef Py_ssize_t                    _shape[2]
 
     @classmethod
     def aa(cls):
@@ -279,6 +281,7 @@ cdef class ScoreMatrix:
             letter = alphabet[i]
             matrix._ahash[toupper(letter)] = matrix._ahash[tolower(letter)] = i
 
+        matrix._shape[0] = matrix._shape[1] = matrix._mx.getAlphabetLength()
         return matrix
 
     def __cinit__(self):
@@ -365,6 +368,22 @@ cdef class ScoreMatrix:
 
     def __reduce__(self):
         return (type(self), (self.alphabet, self.matrix))
+
+    def __getbuffer__(self, Py_buffer* buffer, int flags):
+        if flags & PyBUF_FORMAT:
+            buffer.format = b"i"
+        else:
+            buffer.format = NULL
+        buffer.buf = self._mx.getMatrix()
+        buffer.internal = NULL
+        buffer.itemsize = sizeof(int)
+        buffer.len = self._shape[0] * self._shape[1] * sizeof(int)
+        buffer.ndim = 2
+        buffer.obj = self
+        buffer.readonly = 0
+        buffer.shape = <Py_ssize_t*> &self._shape
+        buffer.suboffsets = NULL
+        buffer.strides = NULL
 
     @property
     def alphabet(self):
