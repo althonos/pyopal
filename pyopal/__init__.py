@@ -13,6 +13,8 @@ from ._opal import (
     FullResult,
 )
 
+__doc__ = _opal.__doc__
+
 # Small addition to the docstring: we want to show a link redirecting to the
 # rendered version of the documentation, but this can only work when Python
 # is running with docstrings enabled

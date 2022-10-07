@@ -42,7 +42,10 @@ following advantages:
   machine to be able to use the full capabilities of the local CPU. PyOpal
   ships several versions of Opal instead, each compiled with different target
   features, and selects the best one for the local platform at runtime.
-
+- **wider platform support**: The Opal code has been backported to work on SSE2
+  rather than SSE4.1, allowing PyOpal to run on older x86 CPUs (all x86 CPUs
+  support it since 2003). In addition, Armv7 and Aarch64 CPUs are also
+  supported if they implement NEON extensions.
 
 ## 🔧 Installing
 
