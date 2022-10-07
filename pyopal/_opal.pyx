@@ -239,6 +239,7 @@ cdef inline void encode_bytes(const unsigned char[:] sequence, char* lut, seq_t*
                 raise ValueError(f"Non-alphabet character in sequence: {chr(letter)}")
             encoded[0][i] = code
 
+
 cdef inline void encode(object sequence, char* lut, seq_t* encoded, int* length) except *:
     if isinstance(sequence, str):
         encode_str(sequence, lut, encoded, length)
@@ -389,6 +390,9 @@ cdef class ScoreMatrix:
 
 
 cdef class ScoreResult:
+    """The results of a search in ``score`` mode.
+    """
+
     cdef ssize_t          _target_index
     cdef OpalSearchResult _result
 
@@ -430,6 +434,9 @@ cdef class ScoreResult:
 
 
 cdef class EndResult(ScoreResult):
+    """The results of a search in ``end`` mode.
+    """
+
     def __init__(
         self,
         size_t target_index,
@@ -452,15 +459,24 @@ cdef class EndResult(ScoreResult):
 
     @property
     def query_end(self):
-        return None if self._result.endLocationQuery == -1 else self._result.endLocationQuery
+        """`int`: The coordinate where the alignment ends in the query.
+        """
+        assert self._result.endLocationQuery >= 0
+        return self._result.endLocationQuery
 
     @property
     def target_end(self):
-        return None if self._result.endLocationTarget == -1 else self._result.endLocationTarget
+        """`int`: The coordinate where the alignment ends in the target.
+        """
+        assert self._result.endLocationTarget >= 0
+        return self._result.endLocationTarget
 
 
 
 cdef class FullResult(EndResult):
+    """The results of a search in ``end`` mode.
+    """
+
     def __init__(
         self,
         size_t target_index,
@@ -493,33 +509,39 @@ cdef class FullResult(EndResult):
 
     @property
     def query_start(self):
+        """`int`: The coordinate where the alignment starts in the query.
+        """
         return None if self._result.startLocationQuery == -1 else self._result.startLocationQuery
 
     @property
     def target_start(self):
+        """`int`: The coordinate where the alignment starts in the target.
+        """
         return None if self._result.startLocationTarget == -1 else self._result.startLocationTarget
 
     @property
     def alignment(self):
-        """`str` or `None`: A string used by Opal to encode alignments.
+        """`str`: A string used by Opal to encode alignments.
         """
+        assert self._result.alignmentLength >= 0
+
         cdef bytearray        ali
         cdef unsigned char[:] view
         cdef Py_UCS4[4]       symbols = ['M', 'D', 'I', 'X']
 
-        if self._result.alignmentLength > 0:
-            ali = bytearray(self._result.alignmentLength)
-            view = ali
-            for i in range(self._result.alignmentLength):
-                view[i] = symbols[self._result.alignment[i]]
-            return ali.decode('ascii')
-
-        return None
+        ali = bytearray(self._result.alignmentLength)
+        view = ali
+        for i in range(self._result.alignmentLength):
+            view[i] = symbols[self._result.alignment[i]]
+        return ali.decode('ascii')
 
     cpdef str cigar(self):
         """cigar(self)\n--
 
         Create a CIGAR string representing the alignment.
+
+        Returns:
+            `str`: A CIGAR string in SAM format describing the alignment.
 
         """
         cdef size_t        i
@@ -552,6 +574,10 @@ cdef class FullResult(EndResult):
         """identity(self)\n--
 
         Compute the identity of the alignment.
+
+        Returns:
+            `float`: The identity of the alignment as a fraction 
+            (between *0* and *1*).
 
         """
         assert self._result.alignment is not NULL
@@ -687,6 +713,12 @@ cdef class Database:
 
         Extend the database by adding sequences from an iterable.
 
+        Example:
+            >>> db = pyopal.Database(["ATGC"])
+            >>> db.extend(["TTCA", "AAAA", "GGTG"])
+            >>> list(db)
+            ['ATGC', 'TTCA', 'AAAA', 'GGTG']
+
         """
         cdef size_t size
         cdef size_t hint = operator.length_hint(sequences)
@@ -707,6 +739,21 @@ cdef class Database:
 
         Append a single sequence at the end of the database.
 
+        Arguments:
+            sequence (`str` or byte-like object): The new sequence.
+
+        Hint:
+            When inserting several sequences in the database, consider
+            using the `Database.extend` method instead so that the 
+            internal buffers can reserve space just once for every 
+            new sequence.
+
+        Example:
+            >>> db = pyopal.Database(["ATGC", "TTCA"])
+            >>> db.append("AAAA")
+            >>> list(db)
+            ['ATGC', 'TTCA', 'AAAA']
+
         """
         cdef int   length
         cdef seq_t encoded
@@ -722,12 +769,37 @@ cdef class Database:
 
         Reverse the database, in place.
 
+        Example:
+            >>> db = pyopal.Database(['ATGC', 'TTGC', 'CTGC'])
+            >>> db.reverse()
+            >>> list(db)
+            ['CTGC', 'TTGC', 'ATGC']
+
         """
         with self.lock.write:
             reverse(self._sequences.begin(), self._sequences.end())
             reverse(self._lengths.begin(), self._lengths.end())
 
     cpdef void insert(self, ssize_t index, object sequence):
+        """insert(index, sequence)\n--
+
+        Insert a sequence in the database at a given position.
+
+        Arguments:
+            index (`int`): The index where to insert the new sequence.
+            sequence (`str` or byte-like object): The new sequence.
+
+        Note:
+            If the insertion index is out of bounds, the insertion will
+            happen at either end of the database::
+
+                >>> db = pyopal.Database(["ATGC", "TTGC", "CTGC"])
+                >>> db.insert(-100, "TTTT")
+                >>> db.insert(100, "AAAA")
+                >>> list(db)
+                ['TTTT', 'ATGC', 'TTGC', 'CTGC', 'AAAA']
+
+        """
         cdef int     length
         cdef seq_t   encoded
         cdef size_t  size
@@ -735,6 +807,9 @@ cdef class Database:
 
         with self.lock.write:
             size = self._sequences.size()
+
+            if index_ < 0:
+                index_ += size
 
             if index_ < 0:
                 index_ = 0

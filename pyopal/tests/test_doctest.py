@@ -76,7 +76,7 @@ def load_tests(loader, tests, ignore):
                 continue
             # import the submodule and add it to the tests
             module = importlib.import_module(".".join([pkg.__name__, subpkgname]))
-            globs = dict(numpy=numpy, Bio=Bio, **module.__dict__)
+            globs = dict(pyopal=pyopal, numpy=numpy, Bio=Bio, **module.__dict__)
             tests.addTests(
                 doctest.DocTestSuite(
                     module,
