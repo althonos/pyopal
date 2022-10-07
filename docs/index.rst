@@ -4,8 +4,8 @@ PyOpal |Stars|
 .. |Stars| image:: https://img.shields.io/github/stars/althonos/pyopal.svg?style=social&maxAge=3600&label=Star
    :target: https://github.com/althonos/pyopal/stargazers
 
-`Cython <https://cython.org/>`_ *bindings and Python interface to* `trimAl <http://trimal.cgenomics.org/>`_,
-*a tool for automated alignment trimming.*
+`Cython <https://cython.org/>`_ *bindings and Python interface to* `Opal <https://github.com/Martinsos/opal>`_,
+*a SIMD-accelerated pairwise aligner.*
 
 |Actions| |Coverage| |PyPI| |Bioconda| |AUR| |Wheel| |Versions| |Implementations| |License| |Source| |Mirror| |Issues| |Docs| |Changelog| |Downloads|
 
