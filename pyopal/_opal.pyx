@@ -653,7 +653,7 @@ cdef class FullResult(EndResult):
 
         Compute the coverage of the alignment.
 
-        Argument:
+        Arguments:
             reference (`str`): The reference sequence to take to compute
                 the coverage: either ``query`` or ``target``.
 
