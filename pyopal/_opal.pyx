@@ -1,5 +1,5 @@
 # distutils: language = c++
-# cython: language_level=3, linetrace=True, binding=True
+# cython: language_level=3, linetrace=True, binding=False
 """Bindings to Opal, a SIMD-accelerated pairwise sequence aligner.
 
 References:
