@@ -493,7 +493,7 @@ cdef class EndResult(ScoreResult):
 
 
 cdef class FullResult(EndResult):
-    """The results of a search in ``end`` mode.
+    """The results of a search in ``full`` mode.
     """
 
     cdef int _query_length
@@ -557,6 +557,9 @@ cdef class FullResult(EndResult):
     @property
     def query_length(self):
         """`int`: The complete length of the query sequence.
+
+        .. versionadded:: 0.2.0
+
         """
         assert self._query_length >= 0
         return self._query_length
@@ -564,6 +567,9 @@ cdef class FullResult(EndResult):
     @property
     def target_length(self):
         """`int`: The complete length of the target sequence.
+
+        .. versionadded:: 0.2.0
+
         """
         assert self._target_length >= 0
         return self._target_length
@@ -591,6 +597,12 @@ cdef class FullResult(EndResult):
 
         Returns:
             `str`: A CIGAR string in SAM format describing the alignment.
+
+        Example:
+            >>> db = Database(["AACCGCTG"])
+            >>> hit = db.search("ACCTCG", mode="full", algorithm="nw")[0]
+            >>> hit.cigar()
+            '1D5M1D1M'
 
         """
         cdef size_t        i
@@ -666,6 +678,8 @@ cdef class FullResult(EndResult):
                 1.0
                 >>> hit.coverage("target")
                 0.875
+
+        .. versionadded:: 0.2.0
 
         """
         assert self._result.alignment is not NULL
