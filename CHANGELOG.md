@@ -6,7 +6,21 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## [Unreleased]
-[Unreleased]: https://github.com/althonos/pyopal/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/althonos/pyopal/compare/v0.2.0...HEAD
+
+
+## [v0.2.0] - 2022-10-17
+[v0.2.0]: https://github.com/althonos/pyopal/compare/v0.1.1...v0.2.0
+
+### Added
+- `query_length` and `target_length` properties to `FullResult` to the lenghts of the complete query and target sequences.
+- `FullResult.coverage` method to compute the coverage of the alignment using either the query or the target as the reference.
+
+### Changed
+- Compile Cython extension with `binding=False` to fix rendering of documentation.
+
+### Fixed
+- Insertion & deletion symbols being inverted in `FullResult.cigar` strings.
 
 
 ## [v0.1.1] - 2022-10-07
