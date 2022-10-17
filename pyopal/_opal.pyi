@@ -8,6 +8,7 @@ except ImportError:
 SEARCH_MODE = Literal["score", "end", "full"]
 SEARCH_OVERFLOW = Literal["simple", "buckets"]
 SEARCH_ALGORITHM = Literal["nw", "hw", "ov", "sw"]
+COVERAGE_REFERENCE = Literal["query", "target"]
 
 class ScoreMatrix:
     @classmethod
@@ -48,6 +49,8 @@ class FullResult(EndResult):
         target_end: int,
         query_start: int,
         target_start: int,
+        query_length: int,
+        target_length: int,
         alignment: str,
     ) -> None: ...
     @property
@@ -55,9 +58,14 @@ class FullResult(EndResult):
     @property
     def target_start(self) -> int: ...
     @property
+    def query_length(self) -> int: ...
+    @property
+    def target_length(self) -> int: ...
+    @property
     def alignment(self) -> str: ...
     def cigar(self) -> str: ...
     def identity(self) -> float: ...
+    def coverage(self, reference: COVERAGE_REFERENCE = "query") -> float: ...
 
 class Database(typing.MutableSequence[str]):
     def __init__(

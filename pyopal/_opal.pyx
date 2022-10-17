@@ -499,6 +499,10 @@ cdef class FullResult(EndResult):
     cdef int _query_length
     cdef int _target_length
 
+    def __cinit__(self):
+        self._query_length = -1
+        self._target_length = -1
+
     def __init__(
         self,
         size_t target_index,
@@ -540,13 +544,29 @@ cdef class FullResult(EndResult):
     def query_start(self):
         """`int`: The coordinate where the alignment starts in the query.
         """
-        return None if self._result.startLocationQuery == -1 else self._result.startLocationQuery
+        assert self._result.startLocationQuery >= 0
+        return self._result.startLocationQuery
 
     @property
     def target_start(self):
         """`int`: The coordinate where the alignment starts in the target.
         """
-        return None if self._result.startLocationTarget == -1 else self._result.startLocationTarget
+        assert self._result.startLocationTarget >= 0
+        return self._result.startLocationTarget
+
+    @property
+    def query_length(self):
+        """`int`: The complete length of the query sequence.
+        """
+        assert self._query_length >= 0
+        return self._query_length
+
+    @property
+    def target_length(self):
+        """`int`: The complete length of the target sequence.
+        """
+        assert self._target_length >= 0
+        return self._target_length
 
     @property
     def alignment(self):
@@ -605,7 +625,7 @@ cdef class FullResult(EndResult):
         Compute the identity of the alignment.
 
         Returns:
-            `float`: The identity of the alignment as a fraction 
+            `float`: The identity of the alignment as a fraction
             (between *0* and *1*).
 
         """
@@ -615,6 +635,74 @@ cdef class FullResult(EndResult):
         cdef int matches    = count(&ali[0], &ali[length], opal.OPAL_ALIGN_MATCH)
         cdef int mismatches = count(&ali[0], &ali[length], opal.OPAL_ALIGN_MISMATCH)
         return (<float> matches) / (<float> (matches + mismatches))
+
+    cpdef float coverage(self, str reference="query"):
+        """coverage(self, reference="query")\n--
+
+        Compute the coverage of the alignment.
+
+        Argument:
+            reference (`str`): The reference sequence to take to compute
+                the coverage: either ``query`` or ``target``.
+
+        Returns:
+            `float`: The coverage of the alignment against the 
+            reference, as a fraction (between *0* and *1*).
+
+        Example:
+            If we align the test sequences from the Opal dataset with 
+            Needleman-Wunsch, we get the following alignment::
+
+                T: AACCGCTG (0 - 7)
+                Q: -ACCTC-G (0 - 5)
+
+            The query coverage will be 100%, but the target coverage will
+            only be 87.5%, since the first letter of the target is not 
+            covered by the alignment::
+
+                >>> db = Database(["AACCGCTG"])
+                >>> hit = db.search("ACCTCG", mode="full", algorithm="nw")[0]
+                >>> hit.coverage("query")
+                1.0
+                >>> hit.coverage("target")
+                0.875
+
+        """
+        assert self._result.alignment is not NULL
+
+        cdef size_t  i
+        cdef ssize_t length
+        cdef ssize_t reflength
+        cdef char    operation
+
+        # compute alignment and total lengths on reference sequence
+        if reference == "query":
+            reflength = self._query_length
+            length = self._result.endLocationQuery + 1 - self._result.startLocationQuery
+            operation = opal.OPAL_ALIGN_DEL
+        elif reference == "target":
+            reflength = self._target_length
+            length = self._result.endLocationTarget + 1 - self._result.startLocationTarget
+            operation = opal.OPAL_ALIGN_INS
+        else:
+            raise ValueError(f"Invalid coverage reference: {reference!r}")
+
+        # trim alignment sides if they correspond to a gap in the reference
+        for i in range(self._result.alignmentLength):
+            if self._result.alignment[i] == operation:
+                length -= 1
+            else:
+                break
+        for i in reversed(range(self._result.alignmentLength)):
+            if self._result.alignment[i] == operation:
+                length -= 1
+            else:
+                break
+
+        # compute the final coverage
+        return 0.0 if length < 0 else (<float> length) / reflength
+
+
 
 
 cdef class Database:
@@ -773,8 +861,8 @@ cdef class Database:
 
         Hint:
             When inserting several sequences in the database, consider
-            using the `Database.extend` method instead so that the 
-            internal buffers can reserve space just once for every 
+            using the `Database.extend` method instead so that the
+            internal buffers can reserve space just once for every
             new sequence.
 
         Example:
@@ -898,9 +986,9 @@ cdef class Database:
 
         Returns:
             `list` of `pyopal.ScoreResult`: A list containing one
-                `ScoreResult` object for each target sequence in the 
-                database. The actual type depends on the requested 
-                ``mode``: it will be a `ScoreResult` for mode ``score``, 
+                `ScoreResult` object for each target sequence in the
+                database. The actual type depends on the requested
+                ``mode``: it will be a `ScoreResult` for mode ``score``,
                 `EndResult` for mode ``end`` and `FullResult` for mode
                 ``full``.
 
@@ -996,7 +1084,7 @@ cdef class Database:
         # free memory used for the query
         PyMem_Free(query)
 
-        # record query and target lengths if in full mode so that 
+        # record query and target lengths if in full mode so that
         # the alignment coverage can be computed later
         if _mode == opal.OPAL_SEARCH_ALIGNMENT:
             for i in range(size):
