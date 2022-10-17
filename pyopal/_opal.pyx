@@ -658,18 +658,18 @@ cdef class FullResult(EndResult):
                 the coverage: either ``query`` or ``target``.
 
         Returns:
-            `float`: The coverage of the alignment against the 
+            `float`: The coverage of the alignment against the
             reference, as a fraction (between *0* and *1*).
 
         Example:
-            If we align the test sequences from the Opal dataset with 
+            If we align the test sequences from the Opal dataset with
             Needleman-Wunsch, we get the following alignment::
 
                 T: AACCGCTG (0 - 7)
                 Q: -ACCTC-G (0 - 5)
 
             The query coverage will be 100%, but the target coverage will
-            only be 87.5%, since the first letter of the target is not 
+            only be 87.5%, since the first letter of the target is not
             covered by the alignment::
 
                 >>> db = Database(["AACCGCTG"])
@@ -733,6 +733,7 @@ cdef class Database:
     cdef readonly ScoreMatrix   score_matrix
     cdef          vector[seq_t] _sequences
     cdef          vector[int]   _lengths
+    cdef          searchfn_t    _search
 
     # --- Magic methods --------------------------------------------------------
 
@@ -740,6 +741,7 @@ cdef class Database:
         self.lock       = SharedMutex()
         self._sequences = vector[seq_t]()
         self._lengths   = vector[int]()
+        self._search    = NULL
 
     def __init__(self, object sequences=(), ScoreMatrix score_matrix=None):
         # reset the collection is `__init__` is called more than once
@@ -748,6 +750,22 @@ cdef class Database:
         self.score_matrix = score_matrix or ScoreMatrix.aa()
         # add the sequences to the database
         self.extend(sequences)
+
+        # Select the best available SIMD backend
+        IF SSE2_BUILD_SUPPORT:
+            if _SSE2_RUNTIME_SUPPORT:
+                self._search = opalSearchDatabaseSSE2
+        IF SSE4_BUILD_SUPPORT:
+            if _SSE4_RUNTIME_SUPPORT:
+                self._search = opalSearchDatabaseSSE4
+        IF AVX2_BUILD_SUPPORT:
+            if _AVX2_RUNTIME_SUPPORT:
+                self._search = opalSearchDatabaseAVX2
+        IF NEON_BUILD_SUPPORT:
+            if _NEON_RUNTIME_SUPPORT:
+                self._search = opalSearchDatabaseNEON
+        if self._search is NULL:
+            raise RuntimeError("No supported SIMD backend available")
 
     def __dealloc__(self):
         cdef size_t i
@@ -1013,6 +1031,7 @@ cdef class Database:
 
         """
         assert self.score_matrix is not None
+        assert self._search is not NULL
 
         cdef int                          _mode
         cdef int                          _overflow
@@ -1027,7 +1046,6 @@ cdef class Database:
         cdef vector[OpalSearchResult_ptr] results_raw
         cdef size_t                       size
         cdef seq_t                        query       = NULL
-        cdef searchfn_t                   searchfn    = NULL
 
         # validate parameters
         if mode in _OPAL_SEARCH_MODES:
@@ -1061,25 +1079,9 @@ cdef class Database:
                 PyList_SET_ITEM(results, i, result)
                 results_raw.push_back(&result._result)
 
-            # Select best available SIMD backend
-            IF AVX2_BUILD_SUPPORT:
-                if _AVX2_RUNTIME_SUPPORT and searchfn is NULL:
-                    searchfn = opalSearchDatabaseAVX2
-            IF SSE4_BUILD_SUPPORT:
-                if _SSE4_RUNTIME_SUPPORT and searchfn is NULL:
-                    searchfn = opalSearchDatabaseSSE4
-            IF SSE2_BUILD_SUPPORT:
-                if _SSE2_RUNTIME_SUPPORT and searchfn is NULL:
-                    searchfn = opalSearchDatabaseSSE2
-            IF NEON_BUILD_SUPPORT:
-                if _NEON_RUNTIME_SUPPORT and searchfn is NULL:
-                    searchfn = opalSearchDatabaseNEON
-            if searchfn is NULL:
-                raise RuntimeError("No supported SIMD backend available")
-
             # Run search pipeline in nogil mode
             with nogil:
-                retcode = searchfn(
+                retcode = self._search(
                     query,
                     length,
                     self._sequences.data(),
