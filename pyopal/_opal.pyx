@@ -496,6 +496,9 @@ cdef class FullResult(EndResult):
     """The results of a search in ``end`` mode.
     """
 
+    cdef int _query_length
+    cdef int _target_length
+
     def __init__(
         self,
         size_t target_index,
@@ -504,9 +507,13 @@ cdef class FullResult(EndResult):
         int target_end,
         int query_start,
         int target_start,
+        int query_length,
+        int target_length,
         str alignment not None,
     ):
         super().__init__(target_index, score, query_end, target_end)
+        self._query_length = query_length
+        self._target_length = target_length
         self._result.startLocationQuery = query_start
         self._result.startLocationTarget = target_start
         self._result.alignmentLength = len(alignment)
@@ -523,6 +530,9 @@ cdef class FullResult(EndResult):
             f"target_end={self.target_end!r})"
             f"query_start={self.query_start!r}, "
             f"target_start={self.target_start!r}, "
+            f"target_start={self.target_start!r}, "
+            f"query_length={self.query_length!r}, "
+            f"target_length={self.target_length!r}, "
             f"alignment={self.alignment!r}, "
         )
 
@@ -909,6 +919,7 @@ cdef class Database:
         cdef int                          retcode
         cdef int                          length
         cdef ScoreResult                  result
+        cdef FullResult                   full_result
         cdef type                         result_type
         cdef list                         results
         cdef vector[OpalSearchResult_ptr] results_raw
@@ -984,6 +995,14 @@ cdef class Database:
 
         # free memory used for the query
         PyMem_Free(query)
+
+        # record query and target lengths if in full mode so that 
+        # the alignment coverage can be computed later
+        if _mode == opal.OPAL_SEARCH_ALIGNMENT:
+            for i in range(size):
+                full_result = results[i]
+                full_result._query_length = length
+                full_result._target_length = self._lengths[i]
 
         # check the alignment worked and return results
         if retcode != 0:
