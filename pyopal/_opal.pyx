@@ -609,7 +609,7 @@ cdef class FullResult(EndResult):
         cdef unsigned char symbol
         cdef unsigned char current
         cdef size_t        count
-        cdef Py_UCS4[3]    symbols = ['M', 'D', 'I']
+        cdef Py_UCS4[3]    symbols = ['M', 'I', 'D']
         cdef list          chunks  = []
 
         if self._result.alignmentLength == 0 or self._result.alignment is None:
