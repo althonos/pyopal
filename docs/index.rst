@@ -9,7 +9,7 @@ PyOpal |Stars|
 
 |Actions| |Coverage| |PyPI| |Bioconda| |AUR| |Wheel| |Versions| |Implementations| |License| |Source| |Mirror| |Issues| |Docs| |Changelog| |Downloads|
 
-.. |Actions| image:: https://img.shields.io/github/workflow/status/althonos/pyopal/Test/main?logo=github&style=flat-square&maxAge=300
+.. |Actions| image:: https://img.shields.io/github/actions/workflow/status/althonos/pyopal/test.yml?branch=main&logo=github&style=flat-square&maxAge=300
    :target: https://github.com/althonos/pyopal/actions
 
 .. |Coverage| image:: https://img.shields.io/codecov/c/gh/althonos/pyopal?style=flat-square&maxAge=600
@@ -103,7 +103,7 @@ License
 -------
 
 This library is provided under the `MIT License <https://choosealicense.com/licenses/mit/>`_.
-trimAl is developed by `Martin Šošić <https://github.com/Martinsos>`_ and is distributed under the
+Opal was developed by `Martin Šošić <https://github.com/Martinsos>`_ and is distributed under the
 terms of the MIT License as well. The ``cpu_features`` library was written by
 `Guillaume Chatelet <https://github.com/gchatelet>`_ and is licensed under the terms of the
 `Apache License 2.0 <https://choosealicense.com/licenses/apache-2.0/>`_.
