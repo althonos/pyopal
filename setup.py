@@ -554,16 +554,8 @@ class build_clib(_build_clib):
             library.define_macros.append(("HAVE_DLFCN_H", 1))
             hwcaps = True
         if library.name == "cpu_features" and hwcaps and TARGET_SYSTEM in ("linux_or_android", "freebsd", "macos"):
-            library.sources.extend(
-                os.path.join("vendor", "cpu_features", "src", basename)
-                for basename in [
-                    "hwcaps.c",
-                    "copy.inl",
-                    "define_introspection.inl",
-                    "define_introspection_and_hwcaps.inl",
-                    "equals.inl",
-                    "impl_x86__base_implementation.inl",
-                ]
+            library.sources.append(
+                os.path.join("vendor", "cpu_features", "src", "hwcaps.c")
             )
 
         # add debug flags if we are building in debug mode
