@@ -113,6 +113,11 @@ _SSE4_RUNTIME_SUPPORT = SSE4_BUILD_SUPPORT and "sse4_1" in _HOST_CPU.features
 _AVX2_RUNTIME_SUPPORT = AVX2_BUILD_SUPPORT and "avx2" in _HOST_CPU.features
 _NEON_RUNTIME_SUPPORT = NEON_BUILD_SUPPORT and "neon" in _HOST_CPU.features
 
+# NOTE(@althonos): NEON is always supported on Aarch64 so we should only check
+#                  that the extension was built with NEON support.
+if _HOST_CPU.family.name == "aarch64":
+    _NEON_RUNTIME_SUPPORT = NEON_BUILD_SUPPORT
+
 # --- Type definitions ---------------------------------------------------------
 
 ctypedef unsigned char     digit_t
