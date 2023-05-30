@@ -1131,7 +1131,7 @@ cdef class Database:
         if overflow in _OPAL_OVERFLOW_MODES:
             _overflow = _OPAL_OVERFLOW_MODES[overflow]
         else:
-            raise ValueError(f"Invalid overflow mode: {mode!r}")
+            raise ValueError(f"Invalid overflow mode: {overflow!r}")
         if algorithm in _OPAL_ALGORITHMS:
             _algo = _OPAL_ALGORITHMS[algorithm]
         else:
