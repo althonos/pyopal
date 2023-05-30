@@ -5,3 +5,4 @@ auditwheel
 setuptools >=46.4.0
 importlib-resources ; python_version < '3.7'
 biopython ; implementation_name == 'cpython'
+archspec ~=0.2
