@@ -31,8 +31,8 @@ interface to query a database of sequences and access the search results. It
 interacts with the Opal interface rather than with the CLI, which has the
 following advantages:
 
-- **single dependency**: PyOpal is distributed as a Python package, so you
-  can add it as a dependency to your project, and stop worrying about the
+- **no binary dependency**: PyOpal is distributed as a Python package, so 
+  you can add it as a dependency to your project, and stop worrying about the
   Opal binary being present on the end-user machine.
 - **no intermediate files**: Everything happens in memory, in a Python object
   you control, so you don't have to invoke the Opal CLI using a sub-process
@@ -49,12 +49,13 @@ following advantages:
 
 ## 🔧 Installing
 
-PyOpal is available for all modern versions (3.6+), with no external dependencies.
+PyOpal is available for all modern versions (3.6+), depending only 
+on the lightweight Python package [`archspec`](https://pypi.org/project/archspec) 
+for runtime CPU feature detection.
 
 It can be installed directly from [PyPI](https://pypi.org/project/pyopal/),
-which hosts some pre-built wheels for the x86-64 architecture (Linux/OSX)
-and the Aarch64 architecture (Linux only), as well as the code required to compile
-from source with Cython:
+which hosts some pre-built x86-64 and Aarch64 wheels for Linux and MacOS,
+as well as the code required to compile from source with Cython:
 ```console
 $ pip install pyopal
 ```
@@ -157,9 +158,6 @@ in the [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) format.
 This library is provided under the [MIT License](https://choosealicense.com/licenses/mit/).
 Opal is developed by [Martin Šošić](https://github.com/Martinsos) and is distributed under the
 terms of the MIT License as well. See `vendor/opal/LICENSE` for more information.
-The `cpu_features` library was written by [Guillaume Chatelet](https://github.com/gchatelet) and is
-licensed under the terms of the [Apache License 2.0](https://choosealicense.com/licenses/apache-2.0/).
-See `vendor/cpu_features/LICENSE` for more information.
 
 *This project is in no way not affiliated, sponsored, or otherwise endorsed
 by the [Opal authors](https://github.com/Martinsos). It was developed

@@ -62,7 +62,7 @@ PyOpal is a Python module that provides bindings to `Opal <https://github.com/Ma
 using `Cython <https://cython.org/>`_. It directly interacts with the trimAl
 internals, which has the following advantages:
 
-- **single dependency**: PyOpal is distributed as a Python package, so you
+- **no binary dependency**: PyOpal is distributed as a Python package, so you
   can add it as a dependency to your project, and stop worrying about the
   Opal binary being present on the end-user machine.
 - **no intermediate files**: Everything happens in memory, in a Python object
@@ -104,9 +104,7 @@ License
 
 This library is provided under the `MIT License <https://choosealicense.com/licenses/mit/>`_.
 Opal was developed by `Martin Šošić <https://github.com/Martinsos>`_ and is distributed under the
-terms of the MIT License as well. The ``cpu_features`` library was written by
-`Guillaume Chatelet <https://github.com/gchatelet>`_ and is licensed under the terms of the
-`Apache License 2.0 <https://choosealicense.com/licenses/apache-2.0/>`_.
+terms of the MIT License as well. 
 
 *This project is in no way not affiliated, sponsored, or otherwise endorsed by
 the original* `Opal`_ *authors. It was developed by* `Martin Larralde <https://github.com/althonos>`_ *during his
