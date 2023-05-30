@@ -6,7 +6,22 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## [Unreleased]
-[Unreleased]: https://github.com/althonos/pyopal/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/althonos/pyopal/compare/v0.3.0...HEAD
+
+
+## [v0.3.0] - 2023-05-30
+[v0.3.0]: https://github.com/althonos/pyopal/compare/v0.2.0...v0.3.0
+
+### Added
+- `Database.extract` method to subset a database given a sequence of indices.
+- `Database.mask` method to subset a database given a boolean mask.
+
+### Changed
+- Replaced `cpu-features` library with `archspec` Python package for runtime detection of CPU features.
+
+### Fixed
+- Segmentation fault in alignment reconstruction code for Needleman-Wunsch algorithm ([#1](https://github.com/althonos/pyopal/issues/1)).
+- Erroneous error message in `Database.search` on invalid `overflow` value ([#2](https://github.com/althonos/pyopal/issues/2)).
 
 
 ## [v0.2.0] - 2022-10-17
