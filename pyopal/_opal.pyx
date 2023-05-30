@@ -12,7 +12,7 @@ References:
 
 # --- C imports ----------------------------------------------------------------
 
-from libc.string cimport memset
+from libc.string cimport memset, memcpy
 from libc.limits cimport UCHAR_MAX
 from libcpp.string cimport string
 from libcpp.vector cimport vector
@@ -951,6 +951,54 @@ cdef class Database:
             encode(sequence, self.score_matrix._ahash, &encoded, &length)
             self._sequences.insert(self._sequences.begin() + index_, encoded)
             self._lengths.insert(self._lengths.begin() + index_, length)
+
+
+    # --- Subset ---------------------------------------------------------------
+
+    cpdef Database mask(self, object bitmask):
+        """mask(self, bitmask)\n--
+
+        Extract a subset of the database where the bitmask is `True`.
+
+        Arguments:
+            bitmask (`collections.abc.Sequence` of `bool`): A sequence of 
+                `bool` objects with the same length as the database.
+
+        Raises:
+            `IndexError`: When the bitmask has a different dimension.
+
+        Example:
+            >>> db = pyopal.Database(['AAAA', 'CCCC', 'KKKK', 'FFFF'])
+            >>> list(db.mask([True, False, False, True]))
+            ['AAAA', 'FFFF']
+
+        .. versionadded:: 0.3.0
+
+        """
+        cdef ssize_t  i
+        cdef int      length
+        cdef seq_t    seq
+        cdef Database subdb
+
+        if len(bitmask) != len(self):
+            raise IndexError(bitmask)
+
+        subdb = Database.__new__(Database)
+        subdb.score_matrix = self.score_matrix
+        subdb._search = self._search
+
+        for i, b in enumerate(bitmask):
+            if b:
+                length = self._lengths[i]
+                seq = <seq_t> PyMem_Malloc(length * sizeof(digit_t))
+                if seq is NULL:
+                    raise MemoryError("Failed to allocate sequence data")
+                with nogil:
+                    memcpy(seq, self._sequences[i], length * sizeof(digit_t))
+                    subdb._sequences.push_back(seq)
+                    subdb._lengths.push_back(length)
+
+        return subdb
 
 
     # --- Opal search ----------------------------------------------------------

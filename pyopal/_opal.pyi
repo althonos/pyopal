@@ -88,6 +88,7 @@ class Database(typing.MutableSequence[str]):
     def insert(
         self, index: int, sequence: typing.Union[str, bytes, bytearray]
     ) -> None: ...
+    def mask(self, bitmask: typing.Sequence[bool]) -> Database: ...
     @typing.overload
     def search(
         self,

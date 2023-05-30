@@ -8,7 +8,7 @@ from . import (
 
 
 def load_tests(loader, suite, pattern):
+    test_doctest.load_tests(loader, suite, pattern)
     suite.addTests(loader.loadTestsFromModule(test_database))
-    suite.addTests(loader.loadTestsFromModule(test_doctest))
     suite.addTests(loader.loadTestsFromModule(test_search))
     return suite
