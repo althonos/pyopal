@@ -1000,6 +1000,50 @@ cdef class Database:
 
         return subdb
 
+    cpdef Database extract(self, object indices):
+        """extract(self, indices)\n--
+
+        Extract a subset of the database using the given indices.
+
+        Arguments:
+            indices (`collections.abc.Sequence` of `int`): A sequence of 
+                `int` objects to use to index the database.
+
+        Raises:
+            `IndexError`: When ``indices`` contains an invalid index.
+
+        Example:
+            >>> db = pyopal.Database(['AAAA', 'CCCC', 'KKKK', 'FFFF'])
+            >>> list(db.extract([2, 0]))
+            ['KKKK', 'AAAA']
+
+        .. versionadded:: 0.3.0
+
+        """
+        cdef ssize_t  index
+        cdef int      length
+        cdef seq_t    seq
+        cdef Database subdb
+
+        subdb = Database.__new__(Database)
+        subdb.score_matrix = self.score_matrix
+        subdb._search = self._search
+        subdb._sequences.reserve(len(indices))
+        subdb._lengths.reserve(len(indices))
+
+        for index in indices:
+            if index < 0 or index >= len(self):
+                raise IndexError(index)
+            length = self._lengths[index]
+            seq = <seq_t> PyMem_Malloc(length * sizeof(digit_t))
+            if seq is NULL:
+                raise MemoryError("Failed to allocate sequence data")
+            with nogil:
+                memcpy(seq, self._sequences[index], length * sizeof(digit_t))
+                subdb._sequences.push_back(seq)
+                subdb._lengths.push_back(length)
+
+        return subdb
 
     # --- Opal search ----------------------------------------------------------
 
