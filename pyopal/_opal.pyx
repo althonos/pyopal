@@ -101,34 +101,17 @@ cdef dict _OPAL_ALIGNMENT_OPERATION = {
 
 # --- Runtime CPU detection ----------------------------------------------------
 
-_TARGET_CPU           = TARGET_CPU
-_SSE2_RUNTIME_SUPPORT = False
-_SSE2_BUILD_SUPPORT   = False
-_SSE4_RUNTIME_SUPPORT = False
-_SSE4_BUILD_SUPPORT   = False
-_AVX2_RUNTIME_SUPPORT = False
-_AVX2_BUILD_SUPPORT   = False
-_NEON_RUNTIME_SUPPORT = False
-_NEON_BUILD_SUPPORT   = False
+import archspec.cpu
 
-IF TARGET_CPU == "x86" and TARGET_SYSTEM in ("freebsd", "linux_or_android", "macos", "windows"):
-    from cpu_features.x86 cimport GetX86Info, X86Info
-    cdef X86Info cpu_info = GetX86Info()
-    _SSE2_BUILD_SUPPORT   = SSE2_BUILD_SUPPORT
-    _SSE2_RUNTIME_SUPPORT = SSE2_BUILD_SUPPORT and cpu_info.features.sse2 != 0
-    _SSE4_BUILD_SUPPORT   = SSE4_BUILD_SUPPORT
-    _SSE4_RUNTIME_SUPPORT = SSE4_BUILD_SUPPORT and cpu_info.features.sse4_1 != 0
-    _AVX2_BUILD_SUPPORT   = AVX2_BUILD_SUPPORT
-    _AVX2_RUNTIME_SUPPORT = AVX2_BUILD_SUPPORT and cpu_info.features.avx2 != 0
-ELIF TARGET_CPU == "arm":
-    from cpu_features.arm cimport GetArmInfo, ArmInfo
-    cdef ArmInfo arm_info = GetArmInfo()
-    _NEON_BUILD_SUPPORT   = NEON_BUILD_SUPPORT
-    _NEON_RUNTIME_SUPPORT = NEON_BUILD_SUPPORT and arm_info.features.neon != 0
-ELIF TARGET_CPU == "aarch64":
-    _NEON_BUILD_SUPPORT   = NEON_BUILD_SUPPORT
-    _NEON_RUNTIME_SUPPORT = NEON_BUILD_SUPPORT # always runtime support on Aarch64
-
+_HOST_CPU             = archspec.cpu.host()
+_SSE2_BUILD_SUPPORT   = SSE2_BUILD_SUPPORT
+_SSE4_BUILD_SUPPORT   = SSE4_BUILD_SUPPORT
+_AVX2_BUILD_SUPPORT   = AVX2_BUILD_SUPPORT
+_NEON_BUILD_SUPPORT   = NEON_BUILD_SUPPORT
+_SSE2_RUNTIME_SUPPORT = SSE2_BUILD_SUPPORT and "sse2" in _HOST_CPU.features
+_SSE4_RUNTIME_SUPPORT = SSE4_BUILD_SUPPORT and "sse4_1" in _HOST_CPU.features
+_AVX2_RUNTIME_SUPPORT = AVX2_BUILD_SUPPORT and "avx2" in _HOST_CPU.features
+_NEON_RUNTIME_SUPPORT = NEON_BUILD_SUPPORT and "neon" in _HOST_CPU.features
 
 # --- Type definitions ---------------------------------------------------------
 

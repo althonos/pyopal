@@ -13,7 +13,6 @@ import subprocess
 import sys
 from distutils.command.clean import clean as _clean
 from distutils.errors import CompileError
-from setuptools.command.build_clib import build_clib as _build_clib
 from setuptools.command.build_ext import build_ext as _build_ext
 from setuptools.command.sdist import sdist as _sdist
 from setuptools.extension import Library
@@ -431,209 +430,6 @@ class build_ext(_build_ext):
         _build_ext.build_extensions(self)
 
 
-class build_clib(_build_clib):
-    """A custom `build_clib` that makes all C++ class attributes public."""
-
-    # --- Compatibility with `setuptools.Command`
-
-    user_options = _build_clib.user_options + [
-        ("parallel", "j", "number of parallel build jobs"),
-    ]
-
-    def initialize_options(self):
-        _build_clib.initialize_options(self)
-        self.parallel = None
-
-    def finalize_options(self):
-        _build_clib.finalize_options(self)
-        if self.parallel is not None:
-            self.parallel = int(self.parallel)
-
-    # --- Autotools-like helpers ---
-
-    def _patch_file(self, input, output):
-        basename = os.path.basename(input)
-        patchname = os.path.realpath(
-            os.path.join(__file__, os.pardir, "patches", "{}.patch".format(basename))
-        )
-        if os.path.exists(patchname):
-            _eprint(
-                "patching", os.path.relpath(input), "with", os.path.relpath(patchname)
-            )
-            with open(patchname, "r") as patchfile:
-                patch = patchfile.read()
-            with open(input, "r") as src:
-                srcdata = src.read()
-            with open(output, "w") as dst:
-                dst.write(_apply_patch(srcdata, patch))
-        else:
-            self.copy_file(input, output)
-
-    def _check_function(self, funcname, header, args="()"):
-        _eprint("checking whether function", repr(funcname), "is available", end="... ")
-
-        self.mkpath(self.build_temp)
-        base = "have_{}".format(funcname)
-        testfile = os.path.join(self.build_temp, "{}.c".format(base))
-        binfile = self.compiler.executable_filename(base, output_dir=self.build_temp)
-        objects = []
-
-        with open(testfile, "w") as f:
-            f.write(
-                """
-                #include <{}>
-                int main() {{
-                    {}{};
-                    return 0;
-                }}
-            """.format(
-                    header, funcname, args
-                )
-            )
-        try:
-            objects = self.compiler.compile([testfile], debug=self.debug)
-            self.compiler.link_executable(objects, base, output_dir=self.build_temp)
-        except:
-            _eprint("no")
-            return False
-        else:
-            _eprint("yes")
-            return True
-        finally:
-            os.remove(testfile)
-            for obj in filter(os.path.isfile, objects):
-                os.remove(obj)
-            if os.path.isfile(binfile):
-                os.remove(binfile)
-
-    # --- Compatibility with base `build_clib` command ---
-
-    def check_library_list(self, libraries):
-        pass
-
-    def get_library_names(self):
-        return [lib.name for lib in self.libraries]
-
-    def get_source_files(self):
-        return [source for lib in self.libraries for source in lib.sources]
-
-    def get_library(self, name):
-        return next(lib for lib in self.libraries if lib.name == name)
-
-    # --- Build code ---
-
-    def build_libraries(self, libraries):
-        # check for functions required for libcpu_features on OSX
-        if TARGET_SYSTEM == "macos":
-            _patch_osx_compiler(self.compiler)
-            if self._check_function(
-                "sysctlbyname", "sys/sysctl.h", args="(NULL, NULL, 0, NULL, 0)"
-            ):
-                self.compiler.define_macro("HAVE_SYSCTLBYNAME", 1)
-
-        # build each library only if the sources are outdated
-        self.mkpath(self.build_clib)
-        for library in libraries:
-            libname = self.compiler.library_filename(
-                library.name, output_dir=self.build_clib
-            )
-            self.make_file(library.sources, libname, self.build_library, (library,))
-
-    def build_library(self, library):
-        # show the compiler being used
-        _eprint(
-            "building", library.name, "with", self.compiler.compiler_type, "compiler"
-        )
-
-        # detect hardware detection capabilities of CPU features
-        hwcaps = False
-        if self._check_function("getauxval", "sys/auxv.h", "(0)"):
-            library.define_macros.append(("HAVE_STRONG_GETAUXVAL", 1))
-            hwcaps = True
-        if self._check_function("dlclose", "dlfcn.h", "(0)"):
-            library.define_macros.append(("HAVE_DLFCN_H", 1))
-            hwcaps = True
-        if library.name == "cpu_features" and hwcaps and TARGET_SYSTEM in ("linux_or_android", "freebsd", "macos"):
-            library.sources.append(
-                os.path.join("vendor", "cpu_features", "src", "hwcaps.c")
-            )
-
-        # add debug flags if we are building in debug mode
-        if self.debug:
-            if self.compiler.compiler_type in {"unix", "cygwin", "mingw32"}:
-                library.extra_compile_args.append("-g")
-            elif self.compiler.compiler_type == "msvc":
-                library.extra_compile_args.append("/Z7")
-
-        # add C++11 flags
-        if library.language == "c++":
-            if self.compiler.compiler_type in {"unix", "cygwin", "mingw32"}:
-                library.extra_compile_args.append("-std=c++11")
-                library.extra_link_args.append("-Wno-alloc-size-larger-than")
-            elif self.compiler.compiler_type == "msvc":
-                library.extra_compile_args.append("/std:c11")
-
-        # add Windows flags
-        if self.compiler.compiler_type == "msvc":
-            library.define_macros.append(("WIN32", 1))
-
-        # expose all private members and copy headers to build directory
-        for header in library.depends:
-            output = os.path.join(
-                self.build_clib, os.path.relpath(header, INCLUDE_FOLDER)
-            )
-            self.mkpath(os.path.dirname(output))
-            self.make_file([header], output, self._patch_file, (header, output))
-
-        # copy sources to build directory
-        sources = [
-            os.path.join(self.build_temp, os.path.basename(source))
-            for source in library.sources
-        ]
-        for source, source_copy in zip(library.sources, sources):
-            self.make_file(
-                [source], source_copy, self._patch_file, (source, source_copy)
-            )
-
-        # store compile args
-        compile_args = (
-            None,
-            library.define_macros,
-            library.include_dirs + [self.build_clib],
-            self.debug,
-            library.extra_compile_args,
-            None,
-            library.depends,
-        )
-        # manually prepare sources and get the names of object files
-        objects = [
-            re.sub(r"(.cpp|.c)$", self.compiler.obj_extension, s) for s in sources
-        ]
-        # only compile outdated files
-        with multiprocessing.pool.ThreadPool(self.parallel) as pool:
-            pool.starmap(
-                functools.partial(self._compile_file, compile_args=compile_args),
-                zip(sources, objects),
-            )
-
-        # link into a static library
-        libfile = self.compiler.library_filename(
-            library.name,
-            output_dir=self.build_clib,
-        )
-        self.make_file(
-            objects,
-            libfile,
-            self.compiler.create_static_lib,
-            (objects, library.name, self.build_clib, None, self.debug),
-        )
-
-    def _compile_file(self, source, object, compile_args):
-        self.make_file(
-            [source], object, self.compiler.compile, ([source], *compile_args)
-        )
-
-
 class clean(_clean):
     """A `clean` that removes intermediate files created by Cython."""
 
@@ -656,27 +452,6 @@ class clean(_clean):
 # --- Setup ---------------------------------------------------------------------
 
 setuptools.setup(
-    libraries=[
-        Library(
-            "cpu_features",
-            language="c",
-            sources=[
-                os.path.join("vendor", "cpu_features", "src", base)
-                for base in [
-                    "impl_{}_{}.c".format(TARGET_CPU, TARGET_SYSTEM),
-                    "filesystem.c",
-                    "stack_line_reader.c",
-                    "string_view.c",
-
-                ]
-            ],
-            include_dirs=[
-                os.path.join("vendor", "cpu_features", "include"),
-                os.path.join("vendor", "cpu_features", "src"),
-            ],
-            define_macros=[("STACK_LINE_READER_BUFFER_SIZE", 1024)],
-        )
-    ],
     ext_modules=[
         Extension(
             "pyopal._opal_neon",
@@ -755,7 +530,6 @@ setuptools.setup(
             ],
             extra_compile_args=[],
             include_dirs=[
-                os.path.join("vendor", "cpu_features", "include"),
                 os.path.join("vendor", "opal", "src"),
                 "pyopal",
                 "include",
@@ -765,7 +539,6 @@ setuptools.setup(
     cmdclass={
         "sdist": sdist,
         "build_ext": build_ext,
-        "build_clib": build_clib,
         "clean": clean,
     },
 )
