@@ -34,13 +34,13 @@ cimport opal
 cimport opal.score_matrix
 from opal cimport OpalSearchResult
 
-IF NEON_BUILD_SUPPORT:
+if NEON_BUILD_SUPPORT:
     from pyopal._opal_neon cimport opalSearchDatabaseNEON
-IF SSE2_BUILD_SUPPORT:
+if SSE2_BUILD_SUPPORT:
     from pyopal._opal_sse2 cimport opalSearchDatabaseSSE2
-IF SSE4_BUILD_SUPPORT:
+if SSE4_BUILD_SUPPORT:
     from pyopal._opal_sse4 cimport opalSearchDatabaseSSE4
-IF AVX2_BUILD_SUPPORT:
+if AVX2_BUILD_SUPPORT:
     from pyopal._opal_avx2 cimport opalSearchDatabaseAVX2
 
 cdef extern from "<cctype>" namespace "std" nogil:
@@ -181,13 +181,13 @@ cdef class WriteLock:
 # --- Sequence encoding --------------------------------------------------------
 
 cdef inline void encode_str(str sequence, char* lut, seq_t* encoded, int* length) except *:
-    cdef size_t  i
+    cdef ssize_t i
     cdef char    code
     cdef Py_UCS4 letter
 
     # make sure the unicode string is in canonical form,
     # --> won't be needed anymore in Python 3.12
-    IF SYS_VERSION_INFO_MAJOR <= 3 and SYS_VERSION_INFO_MINOR < 12:
+    if SYS_VERSION_INFO_MAJOR <= 3 and SYS_VERSION_INFO_MINOR < 12:
         PyUnicode_READY(sequence)
 
     cdef int     kind = PyUnicode_KIND(sequence)
@@ -211,7 +211,7 @@ cdef inline void encode_str(str sequence, char* lut, seq_t* encoded, int* length
 
 
 cdef inline void encode_bytes(const unsigned char[:] sequence, char* lut, seq_t* encoded, int* length) except *:
-    cdef size_t        i
+    cdef ssize_t       i
     cdef char          code
     cdef unsigned char letter
 
@@ -740,18 +740,14 @@ cdef class Database:
         self.extend(sequences)
 
         # Select the best available SIMD backend
-        IF SSE2_BUILD_SUPPORT:
-            if _SSE2_RUNTIME_SUPPORT:
-                self._search = opalSearchDatabaseSSE2
-        IF SSE4_BUILD_SUPPORT:
-            if _SSE4_RUNTIME_SUPPORT:
-                self._search = opalSearchDatabaseSSE4
-        IF AVX2_BUILD_SUPPORT:
-            if _AVX2_RUNTIME_SUPPORT:
-                self._search = opalSearchDatabaseAVX2
-        IF NEON_BUILD_SUPPORT:
-            if _NEON_RUNTIME_SUPPORT:
-                self._search = opalSearchDatabaseNEON
+        if SSE2_BUILD_SUPPORT and _SSE2_RUNTIME_SUPPORT:
+            self._search = opalSearchDatabaseSSE2
+        if SSE4_BUILD_SUPPORT and _SSE4_RUNTIME_SUPPORT:
+            self._search = opalSearchDatabaseSSE4
+        if AVX2_BUILD_SUPPORT and _AVX2_RUNTIME_SUPPORT:
+            self._search = opalSearchDatabaseAVX2
+        if NEON_BUILD_SUPPORT and _NEON_RUNTIME_SUPPORT:
+            self._search = opalSearchDatabaseNEON
         if self._search is NULL:
             raise RuntimeError("No supported SIMD backend available")
 
