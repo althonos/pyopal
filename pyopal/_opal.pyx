@@ -21,9 +21,8 @@ from cpython cimport Py_INCREF
 from cpython.buffer cimport PyBUF_FORMAT
 from cpython.list cimport PyList_New, PyList_SET_ITEM
 from cpython.bytes cimport PyBytes_AsString, PyBytes_FromStringAndSize
-from cpython.mem cimport PyMem_Malloc, PyMem_Realloc, PyMem_Free
-from _unicode cimport (
-    PyUnicode_READY,
+from cpython.mem cimport PyMem_Calloc, PyMem_Realloc, PyMem_Free
+from cpython.unicode cimport (
     PyUnicode_KIND,
     PyUnicode_DATA,
     PyUnicode_READ,
@@ -185,29 +184,23 @@ cdef inline void encode_str(str sequence, char* lut, seq_t* encoded, int* length
     cdef char    code
     cdef Py_UCS4 letter
 
-    # make sure the unicode string is in canonical form,
-    # --> won't be needed anymore in Python 3.12
-    if SYS_VERSION_INFO_MAJOR <= 3 and SYS_VERSION_INFO_MINOR < 12:
-        PyUnicode_READY(sequence)
-
     cdef int     kind = PyUnicode_KIND(sequence)
     cdef void*   data = PyUnicode_DATA(sequence)
     cdef ssize_t slen = PyUnicode_GET_LENGTH(sequence)
 
     length[0] = slen
-    encoded[0] = <seq_t> PyMem_Malloc(length[0] * sizeof(digit_t))
+    encoded[0] = <seq_t> PyMem_Calloc(length[0], sizeof(digit_t))
     if encoded[0] is NULL:
         raise MemoryError("Failed to allocate sequence data")
 
-    with nogil:
-        for i in range(length[0]):
-            letter = PyUnicode_READ(kind, data, i)
-            if not isalpha(letter):
-                raise ValueError(f"Character outside ASCII range: {letter}")
-            code = lut[<unsigned char> letter]
-            if code < 0:
-                raise ValueError(f"Non-alphabet character in sequence: {chr(letter)}")
-            encoded[0][i] = code
+    for i in range(length[0]):
+        letter = PyUnicode_READ(kind, data, i)
+        if not isalpha(letter):
+            raise ValueError(f"Character outside ASCII range: {letter}")
+        code = lut[<unsigned char> letter]
+        if code < 0:
+            raise ValueError(f"Non-alphabet character in sequence: {chr(letter)}")
+        encoded[0][i] = code
 
 
 cdef inline void encode_bytes(const unsigned char[:] sequence, char* lut, seq_t* encoded, int* length) except *:
@@ -216,7 +209,7 @@ cdef inline void encode_bytes(const unsigned char[:] sequence, char* lut, seq_t*
     cdef unsigned char letter
 
     length[0]  = sequence.shape[0]
-    encoded[0] = <seq_t> PyMem_Malloc(length[0] * sizeof(digit_t))
+    encoded[0] = <seq_t> PyMem_Calloc(length[0], sizeof(digit_t))
     if encoded[0] is NULL:
         raise MemoryError("Failed to allocate sequence data")
 
@@ -593,7 +586,7 @@ cdef class FullResult(EndResult):
             '1D5M1D1M'
 
         """
-        cdef size_t        i
+        cdef ssize_t       i
         cdef unsigned char symbol
         cdef unsigned char current
         cdef size_t        count
@@ -672,7 +665,7 @@ cdef class FullResult(EndResult):
         """
         assert self._result.alignment is not NULL
 
-        cdef size_t  i
+        cdef ssize_t i
         cdef ssize_t length
         cdef ssize_t reflength
         cdef char    operation
@@ -766,7 +759,7 @@ cdef class Database:
             return self._sequences.size()
 
     def __getitem__(self, ssize_t index):
-        cdef size_t         i
+        cdef ssize_t        i
         cdef bytearray      decoded
         cdef seq_t          encoded
         cdef size_t         size
@@ -991,7 +984,7 @@ cdef class Database:
         for i, b in enumerate(bitmask):
             if b:
                 length = self._lengths[i]
-                seq = <seq_t> PyMem_Malloc(length * sizeof(digit_t))
+                seq = <seq_t> PyMem_Calloc(length, sizeof(digit_t))
                 if seq is NULL:
                     raise MemoryError("Failed to allocate sequence data")
                 with nogil:
@@ -1036,7 +1029,7 @@ cdef class Database:
             if index < 0 or index >= len(self):
                 raise IndexError(index)
             length = self._lengths[index]
-            seq = <seq_t> PyMem_Malloc(length * sizeof(digit_t))
+            seq = <seq_t> PyMem_Calloc(length, sizeof(digit_t))
             if seq is NULL:
                 raise MemoryError("Failed to allocate sequence data")
             with nogil:
@@ -1145,7 +1138,7 @@ cdef class Database:
             size = self._sequences.size()
 
             # Prepare list of results
-            res_array = PyMem_Malloc(sizeof(OpalSearchResult*) * size)
+            res_array = PyMem_Calloc(size, sizeof(OpalSearchResult*))
             results_raw.reserve(size)
             results = PyList_New(size)
             for i in range(size):
