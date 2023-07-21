@@ -3,6 +3,9 @@
 
 cimport opal
 
+include "_version.py"
+include "_patch.pxi"
+
 cdef int opalSearchDatabaseAVX2(
     unsigned char query[], 
     int queryLength, 

@@ -64,6 +64,8 @@ cdef extern from "<shared_mutex>" namespace "std" nogil:
 
 import operator
 
+include "_version.py"
+include "_patch.pxi"
 
 # --- Constants ----------------------------------------------------------------
 
