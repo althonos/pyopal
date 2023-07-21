@@ -10,6 +10,6 @@ recursive-include pyopal/tests        *.py requirements.txt
 recursive-include vendor/opal         README.md LICENSE AUTHORS CHANGELOG CMakeLists.txt
 recursive-include vendor/opal/src     *.cpp *.h *.hpp
 
-recursive-include pyopal            *.py *.pyi *.pyx *.pxd *.h py.typed
+recursive-include pyopal            *.py *.pyi *.pxi *.pyx *.pxd *.h py.typed
 recursive-exclude pyopal            *.cpp *.html
 
