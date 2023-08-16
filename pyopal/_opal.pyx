@@ -514,13 +514,13 @@ cdef class FullResult(EndResult):
             f"{ty}({self.target_index}, "
             f"score={self.score!r}, "
             f"query_end={self.query_end!r}, "
-            f"target_end={self.target_end!r})"
+            f"target_end={self.target_end!r}, "
             f"query_start={self.query_start!r}, "
             f"target_start={self.target_start!r}, "
             f"target_start={self.target_start!r}, "
             f"query_length={self.query_length!r}, "
             f"target_length={self.target_length!r}, "
-            f"alignment={self.alignment!r}, "
+            f"alignment={self.alignment!r})"
         )
 
     @property
@@ -957,7 +957,7 @@ cdef class Database:
         Extract a subset of the database where the bitmask is `True`.
 
         Arguments:
-            bitmask (`collections.abc.Sequence` of `bool`): A sequence of 
+            bitmask (`collections.abc.Sequence` of `bool`): A sequence of
                 `bool` objects with the same length as the database.
 
         Raises:
@@ -1002,7 +1002,7 @@ cdef class Database:
         Extract a subset of the database using the given indices.
 
         Arguments:
-            indices (`collections.abc.Sequence` of `int`): A sequence of 
+            indices (`collections.abc.Sequence` of `int`): A sequence of
                 `int` objects to use to index the database.
 
         Raises:
