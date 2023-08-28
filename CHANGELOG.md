@@ -6,7 +6,18 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## [Unreleased]
-[Unreleased]: https://github.com/althonos/pyopal/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/althonos/pyopal/compare/v0.4.1...HEAD
+
+
+## [v0.4.1] - 2023-08-29
+[v0.4.1]: https://github.com/althonos/pyopal/compare/v0.4.0...v0.4.1
+
+### Fixed
+- `FullResult.__repr__` not returning a roundtripping string ([#4](https://github.com/althonos/pyopal/pull/4), by [@valentynbez](https://github.com/valentynbez)).
+- `Database.search` overflowing for long sequences with non-`sw` algorithms ([#3](https://github.com/althonos/pyopal/issues/3)).
+
+### Changed
+- Make `Database.search` raise an `OverflowError` instead of a `RuntimeError` on score overflow.
 
 
 ## [v0.4.0] - 2023-07-21
