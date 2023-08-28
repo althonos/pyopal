@@ -478,7 +478,7 @@ class clean(_clean):
 
     def run(self):
 
-        source_dir = os.path.join(os.path.dirname(__file__), "pymuscle5")
+        source_dir = os.path.join(os.path.dirname(__file__), "pyopal")
 
         patterns = ["*.html"]
         if self.all:
