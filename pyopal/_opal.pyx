@@ -1099,6 +1099,11 @@ cdef class Database:
             `ValueError`: When ``sequence`` contains invalid characters
                 with respect to the alphabet of the database scoring
                 matrix.
+            `OverflowError`: When the score computed by Opal for a 
+                sequence overflows or underflows the limit values for 
+                the SIMD backend.
+            `RuntimeError`: When attempting to call `Database.search` on
+                a platform with no supported SIMD backend.            
 
         """
         assert self.score_matrix is not None
@@ -1180,7 +1185,11 @@ cdef class Database:
                 full_result._target_length = self._lengths[i]
 
         # check the alignment worked and return results
-        if retcode != 0:
+        if retcode == opal.OPAL_ERR_NO_SIMD_SUPPORT:
+            raise RuntimeError("No available SIMD on this platform")
+        elif retcode == opal.OPAL_ERR_OVERFLOW:
+            raise OverflowError("Overflow detected while computing alignment scores")
+        elif retcode != 0:
             raise RuntimeError(f"Failed to run search Opal database (code={retcode})")
         return results
 
