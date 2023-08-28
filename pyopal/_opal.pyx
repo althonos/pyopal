@@ -1073,7 +1073,7 @@ cdef class Database:
                 overflows in the comparison pipeline: ``simple`` computes
                 scores with 8-bit range first then recomputes with 16-bit
                 range (and then 32-bit) the sequences that overflowed;
-                ``bucket`` to divide the targets in ``buckets``, and switch
+                ``buckets`` to divide the targets in buckets, and switch
                 to larger score ranges within a bucket when the first
                 overflow is detected.
             algorithm (`str`): The alignment algorithm to use: ``nw``
