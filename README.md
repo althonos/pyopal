@@ -60,11 +60,11 @@ as well as the code required to compile from source with Cython:
 $ pip install pyopal
 ```
 
-<!-- Otherwise, PyOpal is also available as a [Bioconda](https://bioconda.github.io/)
+Otherwise, PyOpal is also available as a [Bioconda](https://bioconda.github.io/)
 package:
 ```console
 $ conda install -c bioconda pyopal
-``` -->
+```
 
 ## 💡 Example
 

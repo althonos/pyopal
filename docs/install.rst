@@ -23,16 +23,16 @@ one is available, or from source after compiling the Cython code :
    $ pip install --user pyopal
 
 
-.. Conda
-.. ^^^^^
+Conda
+^^^^^
 
-.. `pyopal` is also available as a `recipe <https://anaconda.org/bioconda/pyopal>`_
-.. in the `bioconda <https://bioconda.github.io/>`_ channel. To install, simply
-.. use the ``conda`` installer:
+`pyopal` is also available as a `recipe <https://anaconda.org/bioconda/pyopal>`_
+in the `bioconda <https://bioconda.github.io/>`_ channel. To install, simply
+use the ``conda`` installer:
 
-.. .. code:: console
+.. code:: console
 
-..    $ conda install -c bioconda pyopal
+   $ conda install -c bioconda pyopal
 
 
 Arch User Repository
