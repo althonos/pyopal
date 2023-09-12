@@ -1,5 +1,5 @@
 # distutils: language = c++
-# cython: language_level=3, linetrace=True, binding=False
+# cython: language_level=3, linetrace=True, binding=True
 """Bindings to Opal, a SIMD-accelerated pairwise sequence aligner.
 
 References:
@@ -243,10 +243,7 @@ cdef class ScoreMatrix:
 
     @classmethod
     def aa(cls):
-        """aa(cls)\n--
-
-        Create a default amino-acid scoring matrix (BLOSUM50).
-
+        """Create a default amino-acid scoring matrix (BLOSUM50).
         """
         cdef int                  i
         cdef char                 unknown
@@ -274,9 +271,7 @@ cdef class ScoreMatrix:
             self._ahash[i] = self._unknown
 
     def __init__(self, str alphabet not None, object matrix not None):
-        """__init__(alphabet, matrix)\n--
-
-        Create a new score matrix from the given alphabet and scores.
+        """Create a new score matrix from the given alphabet and scores.
 
         Arguments:
             alphabet (`str`): The alphabet of the similarity matrix.
@@ -574,9 +569,7 @@ cdef class FullResult(EndResult):
         return ali.decode('ascii')
 
     cpdef str cigar(self):
-        """cigar(self)\n--
-
-        Create a CIGAR string representing the alignment.
+        """Create a CIGAR string representing the alignment.
 
         Returns:
             `str`: A CIGAR string in SAM format describing the alignment.
@@ -615,9 +608,7 @@ cdef class FullResult(EndResult):
         return "".join(chunks)
 
     cpdef float identity(self):
-        """identity(self)\n--
-
-        Compute the identity of the alignment.
+        """Compute the identity of the alignment.
 
         Returns:
             `float`: The identity of the alignment as a fraction
@@ -632,9 +623,7 @@ cdef class FullResult(EndResult):
         return (<float> matches) / (<float> (matches + mismatches))
 
     cpdef float coverage(self, str reference="query"):
-        """coverage(self, reference="query")\n--
-
-        Compute the coverage of the alignment.
+        """Compute the coverage of the alignment.
 
         Arguments:
             reference (`str`): The reference sequence to take to compute
@@ -821,10 +810,7 @@ cdef class Database:
             self._lengths.erase(self._lengths.begin() + index_)
 
     cpdef void clear(self) except *:
-        """clear(self)\n--
-
-        Remove all sequences from the database.
-
+        """Remove all sequences from the database.
         """
         cdef size_t i
 
@@ -837,9 +823,7 @@ cdef class Database:
             self._lengths.clear()
 
     cpdef void extend(self, object sequences) except *:
-        """extend(self, sequences)\n--
-
-        Extend the database by adding sequences from an iterable.
+        """Extend the database by adding sequences from an iterable.
 
         Example:
             >>> db = pyopal.Database(["ATGC"])
@@ -863,9 +847,7 @@ cdef class Database:
             self.append(sequence)
 
     cpdef void append(self, object sequence) except *:
-        """append(self, sequence)\n--
-
-        Append a single sequence at the end of the database.
+        """Append a single sequence at the end of the database.
 
         Arguments:
             sequence (`str` or byte-like object): The new sequence.
@@ -893,9 +875,7 @@ cdef class Database:
             self._lengths.push_back(length)
 
     cpdef void reverse(self) except *:
-        """reverse(self)\n--
-
-        Reverse the database, in place.
+        """Reverse the database, in place.
 
         Example:
             >>> db = pyopal.Database(['ATGC', 'TTGC', 'CTGC'])
@@ -909,9 +889,7 @@ cdef class Database:
             reverse(self._lengths.begin(), self._lengths.end())
 
     cpdef void insert(self, ssize_t index, object sequence):
-        """insert(index, sequence)\n--
-
-        Insert a sequence in the database at a given position.
+        """Insert a sequence in the database at a given position.
 
         Arguments:
             index (`int`): The index where to insert the new sequence.
@@ -952,9 +930,7 @@ cdef class Database:
     # --- Subset ---------------------------------------------------------------
 
     cpdef Database mask(self, object bitmask):
-        """mask(self, bitmask)\n--
-
-        Extract a subset of the database where the bitmask is `True`.
+        """Extract a subset of the database where the bitmask is `True`.
 
         Arguments:
             bitmask (`collections.abc.Sequence` of `bool`): A sequence of
@@ -997,9 +973,7 @@ cdef class Database:
         return subdb
 
     cpdef Database extract(self, object indices):
-        """extract(self, indices)\n--
-
-        Extract a subset of the database using the given indices.
+        """Extract a subset of the database using the given indices.
 
         Arguments:
             indices (`collections.abc.Sequence` of `int`): A sequence of
@@ -1053,9 +1027,7 @@ cdef class Database:
         str overflow = "buckets",
         str algorithm = "sw",
     ):
-        """search(self, sequence, *, gap_open=3, gap_extend=1, mode="score", overflow="buckets", algorithm="sw")\n--
-
-        Search the database with a query sequence.
+        """Search the database with a query sequence.
 
         Arguments:
             sequence (`str` or byte-like object): The sequence to query the
@@ -1140,41 +1112,41 @@ cdef class Database:
 
         # Prepare query
         encode(sequence, self.score_matrix._ahash, &query, &length)
+        try:
+            with self.lock.read:
+                size = self._sequences.size()
 
-        with self.lock.read:
-            size = self._sequences.size()
+                # Prepare list of results
+                res_array = PyMem_Calloc(size, sizeof(OpalSearchResult*))
+                results_raw.reserve(size)
+                results = PyList_New(size)
+                for i in range(size):
+                    result = result_type.__new__(result_type)
+                    result._target_index = i
+                    Py_INCREF(result)
+                    PyList_SET_ITEM(results, i, result)
+                    results_raw.push_back(&result._result)
 
-            # Prepare list of results
-            res_array = PyMem_Calloc(size, sizeof(OpalSearchResult*))
-            results_raw.reserve(size)
-            results = PyList_New(size)
-            for i in range(size):
-                result = result_type.__new__(result_type)
-                result._target_index = i
-                Py_INCREF(result)
-                PyList_SET_ITEM(results, i, result)
-                results_raw.push_back(&result._result)
-
-            # Run search pipeline in nogil mode
-            with nogil:
-                retcode = self._search(
-                    query,
-                    length,
-                    self._sequences.data(),
-                    self._sequences.size(),
-                    self._lengths.data(),
-                    gap_open,
-                    gap_extend,
-                    self.score_matrix._mx.getMatrix(),
-                    self.score_matrix._mx.getAlphabetLength(),
-                    results_raw.data(),
-                    _mode,
-                    _algo,
-                    _overflow,
-                )
-
-        # free memory used for the query
-        PyMem_Free(query)
+                # Run search pipeline in nogil mode
+                with nogil:
+                    retcode = self._search(
+                        query,
+                        length,
+                        self._sequences.data(),
+                        self._sequences.size(),
+                        self._lengths.data(),
+                        gap_open,
+                        gap_extend,
+                        self.score_matrix._mx.getMatrix(),
+                        self.score_matrix._mx.getAlphabetLength(),
+                        results_raw.data(),
+                        _mode,
+                        _algo,
+                        _overflow,
+                    )
+        finally:
+            # free memory used for the query
+            PyMem_Free(query)
 
         # record query and target lengths if in full mode so that
         # the alignment coverage can be computed later
