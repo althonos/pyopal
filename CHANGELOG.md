@@ -6,7 +6,17 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## [Unreleased]
-[Unreleased]: https://github.com/althonos/pyopal/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/althonos/pyopal/compare/v0.4.2...HEAD
+
+
+## [v0.4.2] - 2023-08-29
+[v0.4.2]: https://github.com/althonos/pyopal/compare/v0.4.1...v0.4.2
+
+### Fixed
+- Segmentation fault caused by out-of-bounds access in Opal ([#5](https://github.com/althonos/pyopal/issues/5)).
+
+### Changed
+- Use Cython `binding` directive to improve generated documentation. 
 
 
 ## [v0.4.1] - 2023-08-29
