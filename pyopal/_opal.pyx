@@ -139,7 +139,7 @@ ctypedef int (*searchfn_t)(
     const int,
     int,
     int,
-) nogil
+) noexcept nogil
 
 # --- Exclusive read/write lock ------------------------------------------------
 

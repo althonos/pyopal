@@ -17,4 +17,4 @@ cdef int opalSearchDatabaseNEON(
     const int searchType, 
     int mode, 
     int overflowMethod
-) nogil
+) noexcept nogil

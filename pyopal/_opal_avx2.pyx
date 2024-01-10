@@ -20,7 +20,7 @@ cdef int opalSearchDatabaseAVX2(
     const int searchType, 
     int mode, 
     int overflowMethod
-) nogil:
+) noexcept nogil:
     return opal.opalSearchDatabase(
         query,
         queryLength, 
