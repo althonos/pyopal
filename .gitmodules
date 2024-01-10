@@ -1,3 +1,6 @@
 [submodule "vendor/opal"]
 	path = vendor/opal
 	url = https://github.com/althonos/opal
+[submodule "vendor/sword"]
+	path = vendor/sword
+	url = https://github.com/rvaser/sword
