@@ -578,6 +578,24 @@ setuptools.setup(
                 "include",
             ],
         ),
+        Extension(
+            "pyopal._sword",
+            language="c++",
+            sources=[
+                os.path.join("vendor", "sword", "src", "chain.cpp"),
+                os.path.join("vendor", "sword", "src", "kmers.cpp"),
+                os.path.join("vendor", "sword", "src", "reader.cpp"),
+                os.path.join("vendor", "sword", "src", "score_matrix.cpp"),
+                os.path.join("pyopal", "_sword.pyx"),
+            ],
+            extra_compile_args=[],
+            include_dirs=[
+                # os.path.join("vendor", "opal", "src"),
+                os.path.join("vendor", "sword", "src"),
+                "pyopal",
+                "include",
+            ],
+        ),
     ],
     cmdclass={
         "sdist": sdist,
