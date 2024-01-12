@@ -276,7 +276,7 @@ class build_ext(_build_ext):
         )
 
     def _neon_flags(self):
-        return ["-mfpu=neon"] if TARGET_CPU == "arm" else []
+        return ["-mfpu=neon"] if self.target_cpu == "arm" else []
 
     def _check_neon(self):
         return self._check_simd_generic(
