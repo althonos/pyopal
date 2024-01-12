@@ -357,6 +357,7 @@ class build_ext(_build_ext):
         if self.compiler.compiler_type in {"unix", "cygwin", "mingw32"}:
             ext.extra_compile_args.extend([
                 "-funroll-loops",
+                "-faligned-new",
                 "-std=c++17",
                 "-Wno-unused-variable",
                 "-Wno-maybe-uninitialized",
