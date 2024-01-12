@@ -584,6 +584,7 @@ setuptools.setup(
             sources=[
                 os.path.join("vendor", "sword", "src", "chain.cpp"),
                 os.path.join("vendor", "sword", "src", "kmers.cpp"),
+                os.path.join("vendor", "sword", "src", "hash.cpp"),
                 os.path.join("vendor", "sword", "src", "reader.cpp"),
                 os.path.join("vendor", "sword", "src", "score_matrix.cpp"),
                 os.path.join("pyopal", "_sword.pyx"),
