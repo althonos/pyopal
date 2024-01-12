@@ -113,17 +113,23 @@ cdef dict _OPAL_ALIGNMENT_OPERATION = {
 
 # --- Runtime CPU detection ----------------------------------------------------
 
-import archspec.cpu
+if TARGET_SYSTEM == "windows":
+    import cpuinfo
+    _HOST_CPU = cpuinfo.get_cpu_info()
+    _HOST_FEATURES = _HOST_CPU["flags"]
+else:
+    import archspec.cpu
+    _HOST_CPU             = archspec.cpu.host()
+    _HOST_FEATURES        = _HOST_CPU.features
 
-_HOST_CPU             = archspec.cpu.host()
 _SSE2_BUILD_SUPPORT   = SSE2_BUILD_SUPPORT
 _SSE4_BUILD_SUPPORT   = SSE4_BUILD_SUPPORT
 _AVX2_BUILD_SUPPORT   = AVX2_BUILD_SUPPORT
 _NEON_BUILD_SUPPORT   = NEON_BUILD_SUPPORT
-_SSE2_RUNTIME_SUPPORT = SSE2_BUILD_SUPPORT and "sse2" in _HOST_CPU.features
-_SSE4_RUNTIME_SUPPORT = SSE4_BUILD_SUPPORT and "sse4_1" in _HOST_CPU.features
-_AVX2_RUNTIME_SUPPORT = AVX2_BUILD_SUPPORT and "avx2" in _HOST_CPU.features
-_NEON_RUNTIME_SUPPORT = NEON_BUILD_SUPPORT and "neon" in _HOST_CPU.features
+_SSE2_RUNTIME_SUPPORT = SSE2_BUILD_SUPPORT and "sse2" in _HOST_FEATURES
+_SSE4_RUNTIME_SUPPORT = SSE4_BUILD_SUPPORT and "sse4_1" in _HOST_FEATURES
+_AVX2_RUNTIME_SUPPORT = AVX2_BUILD_SUPPORT and "avx2" in _HOST_FEATURES
+_NEON_RUNTIME_SUPPORT = NEON_BUILD_SUPPORT and "neon" in _HOST_FEATURES
 
 # NOTE(@althonos): NEON is always supported on Aarch64 so we should only check
 #                  that the extension was built with NEON support.
@@ -1073,11 +1079,11 @@ cdef class Database:
             `ValueError`: When ``sequence`` contains invalid characters
                 with respect to the alphabet of the database scoring
                 matrix.
-            `OverflowError`: When the score computed by Opal for a 
-                sequence overflows or underflows the limit values for 
+            `OverflowError`: When the score computed by Opal for a
+                sequence overflows or underflows the limit values for
                 the SIMD backend.
             `RuntimeError`: When attempting to call `Database.search` on
-                a platform with no supported SIMD backend.            
+                a platform with no supported SIMD backend.
 
         """
         assert self.score_matrix is not None
