@@ -361,7 +361,7 @@ class build_ext(_build_ext):
                 "-Wno-return-type"
             ])
         elif self.compiler.compiler_type == "msvc":
-            ext.extra_compile_args.append("/std:c17")
+            ext.extra_compile_args.append("/std:c++17")
 
         # add Windows flags
         if self.compiler.compiler_type == "msvc":
