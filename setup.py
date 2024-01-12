@@ -12,6 +12,7 @@ import setuptools.extension
 import subprocess
 import string
 import sys
+import sysconfig
 from distutils.command.clean import clean as _clean
 from distutils.errors import CompileError
 from setuptools.command.build_ext import build_ext as _build_ext
@@ -36,38 +37,6 @@ class ExtensionTemplate(Extension):
         self.templates = kwargs.pop("templates", {})
         super().__init__(*args, **kwargs)
 
-# --- Constants -----------------------------------------------------------------
-
-SETUP_FOLDER = os.path.realpath(os.path.join(__file__, os.pardir))
-INCLUDE_FOLDER = os.path.join(SETUP_FOLDER, "vendor", "opal", "src")
-
-MACHINE = platform.machine()
-if re.match("^mips", MACHINE):
-    TARGET_CPU = "mips"
-elif re.match("^(aarch64|arm64)$", MACHINE):
-    TARGET_CPU = "aarch64"
-elif re.match("^arm", MACHINE):
-    TARGET_CPU = "arm"
-elif re.match("(x86_64)|(AMD64|amd64)", MACHINE):
-    TARGET_CPU = "x86_64"
-elif re.match("x86|(^i.86$)", MACHINE):
-    TARGET_CPU = "x86"
-elif re.match("^(powerpc|ppc)", MACHINE):
-    TARGET_CPU = "ppc"
-else:
-    TARGET_CPU = None
-
-SYSTEM = platform.system()
-if SYSTEM == "Linux" or SYSTEM == "Java":
-    TARGET_SYSTEM = "linux_or_android"
-elif SYSTEM.endswith("FreeBSD"):
-    TARGET_SYSTEM = "freebsd"
-elif SYSTEM == "Darwin":
-    TARGET_SYSTEM = "macos"
-elif SYSTEM.startswith(("Windows", "MSYS", "MINGW", "CYGWIN")):
-    TARGET_SYSTEM = "windows"
-else:
-    TARGET_SYSTEM = None
 
 # --- Utils ------------------------------------------------------------------
 
@@ -95,6 +64,41 @@ def _patch_osx_compiler(compiler):
         if i is not None:
             flags.pop(i)
             flags.pop(i - 1)
+
+
+def _detect_target_machine(platform):
+    if platform == "win32":
+        return "x86"
+    return platform.rsplit("-", 1)[-1]
+
+
+def _detect_target_cpu(platform):
+    machine = _detect_target_machine(platform)
+    if re.match("^mips", machine):
+        return "mips"
+    elif re.match("^(aarch64|arm64)$", machine):
+        return "aarch64"
+    elif re.match("^arm", machine):
+        return "arm"
+    elif re.match("(x86_64)|AMD64|amd64", machine):
+        return "x86_64"
+    elif re.match("(x86)|(^i.86$)", machine):
+        return "x86"
+    elif re.match("^(powerpc|ppc)", machine):
+        return "ppc"
+    return None
+
+
+def _detect_target_system(platform):
+    if platform.startswith("win"):
+        return "windows"
+    elif platform.startswith("macos"):
+        return "macos"
+    elif platform.startswith("linux"):
+        return "linux_or_android"
+    elif platform.startswith("freebsd"):
+        return "freebsd"
+    return None
 
 
 # --- Commands ------------------------------------------------------------------
@@ -149,9 +153,19 @@ class build_ext(_build_ext):
         self.disable_sse2 = False
         self.disable_sse4 = False
         self.disable_neon = False
+        self.target_machine = None
+        self.target_system = None
+        self.target_cpu = None
 
     def finalize_options(self):
         _build_ext.finalize_options(self)
+        # check platform
+        if self.plat_name is None:
+            self.plat_name = sysconfig.get_platform()
+        # detect platform options
+        self.target_machine = _detect_target_machine(self.plat_name)
+        self.target_system = _detect_target_system(self.plat_name)
+        self.target_cpu = _detect_target_cpu(self.plat_name)
         # record SIMD-specific options
         self._simd_supported = dict(AVX2=False, SSE2=False, NEON=False, SSE4=False)
         self._simd_defines = dict(AVX2=[], SSE2=[], NEON=[], SSE4=[])
@@ -162,15 +176,6 @@ class build_ext(_build_ext):
             "SSE4": self.disable_sse4,
             "NEON": self.disable_neon,
         }
-        # transfer arguments to the build_clib method
-        self._clib_cmd = self.get_finalized_command("build_clib")
-        self._clib_cmd.debug = self.debug
-        self._clib_cmd.force = self.force
-        self._clib_cmd.verbose = self.verbose
-        self._clib_cmd.define = self.define
-        self._clib_cmd.include_dirs = self.include_dirs
-        self._clib_cmd.compiler = self.compiler
-        self._clib_cmd.parallel = self.parallel
 
     # --- Autotools-like helpers ---
 
@@ -340,7 +345,7 @@ class build_ext(_build_ext):
 
     def build_extension(self, ext):
         # show the compiler being used
-        _eprint("building", ext.name, "with", self.compiler.compiler_type, "compiler")
+        _eprint("building", ext.name, "with", self.compiler.compiler_type, "compiler for platform", self.plat_name)
 
         # add debug symbols if we are building in debug mode
         if self.debug:
@@ -369,15 +374,6 @@ class build_ext(_build_ext):
         # add Windows flags
         if self.compiler.compiler_type == "msvc":
             ext.define_macros.append(("WIN32", 1))
-
-        # update link and include directories
-        for name in ext.libraries:
-            lib = self._clib_cmd.get_library(name)
-            libfile = self.compiler.library_filename(
-                lib.name, output_dir=self._clib_cmd.build_clib
-            )
-            ext.depends.append(libfile)
-            ext.extra_objects.append(libfile)
 
         # check if `PyInterpreterState_GetID` is defined
         if self._check_getid():
@@ -424,8 +420,8 @@ class build_ext(_build_ext):
                 "SYS_VERSION_INFO_MINOR": sys.version_info.minor,
                 "SYS_VERSION_INFO_MICRO": sys.version_info.micro,
                 "DEFAULT_BUFFER_SIZE": io.DEFAULT_BUFFER_SIZE,
-                "TARGET_CPU": TARGET_CPU,
-                "TARGET_SYSTEM": TARGET_SYSTEM,
+                "TARGET_CPU": self.target_cpu,
+                "TARGET_SYSTEM": self.target_system,
                 "AVX2_BUILD_SUPPORT": False,
                 "NEON_BUILD_SUPPORT": False,
                 "SSE2_BUILD_SUPPORT": False,
@@ -448,16 +444,8 @@ class build_ext(_build_ext):
             cython_args["compiler_directives"]["boundscheck"] = False
             cython_args["compiler_directives"]["wraparound"] = False
 
-        # compile the C libraries
-        if not self.distribution.have_run.get("build_clib", False):
-            self._clib_cmd.run()
-
-        # add the include dirs
-        for ext in self.extensions:
-            ext.include_dirs.append(self._clib_cmd.build_clib)
-
         # check if we can build platform-specific code
-        if TARGET_CPU == "x86" or TARGET_CPU == "x86_64":
+        if self.target_cpu == "x86" or self.target_cpu == "x86_64":
             if not self._simd_disabled["AVX2"] and self._check_avx2():
                 cython_args["compile_time_env"]["AVX2_BUILD_SUPPORT"] = True
                 self._simd_supported["AVX2"] = True
@@ -473,7 +461,7 @@ class build_ext(_build_ext):
                 self._simd_supported["SSE2"] = True
                 self._simd_flags["SSE2"].extend(self._sse2_flags())
                 self._simd_defines["SSE2"].append(("__SSE2__", 1))
-        elif TARGET_CPU == "arm" or TARGET_CPU == "aarch64":
+        elif self.target_cpu == "arm" or self.target_cpu == "aarch64":
             if not self._simd_disabled["NEON"] and self._check_neon():
                 cython_args["compile_time_env"]["NEON_BUILD_SUPPORT"] = True
                 self._simd_supported["NEON"] = True
