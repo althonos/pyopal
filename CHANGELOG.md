@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 [Unreleased]: https://github.com/althonos/pyopal/compare/v0.4.2...HEAD
 
 
+## [v0.5.0-a1] - 2024-01-12
+[v0.5.0-a1]: https://github.com/althonos/pyopal/compare/v0.4.2...v0.5.0-a1
+
+### Changed
+- Store `Database` sequences using `shared_ptr` for fast slicing and extraction of a database subset.
+- Use templates to generate platform-specific Cython files.
+
+### Fixed
+- SSE2 not being detected on x86-64, where it is mandatory.
+- Mark Opal search functions as `noexcept` in Cython to avoid exception checks.
+
+### Added
+- Support for compiling and running package on Windows.
+- Support for Python 3.12.
+
+
 ## [v0.4.2] - 2023-08-29
 [v0.4.2]: https://github.com/althonos/pyopal/compare/v0.4.1...v0.4.2
 
