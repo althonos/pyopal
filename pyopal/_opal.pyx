@@ -138,7 +138,7 @@ if TARGET_CPU == "aarch64":
 
 # NOTE(@althonos): SSE2 is always supported on x86-64 so we should only check
 #                  that the extension was built with SSE2 support.
-if TARGET_CPU == "x86-64":
+if TARGET_CPU == "x86_64":
     _SSE2_RUNTIME_SUPPORT = SSE2_BUILD_SUPPORT
 
 # --- Type definitions ---------------------------------------------------------
