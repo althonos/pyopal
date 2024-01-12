@@ -13,9 +13,12 @@ References:
 # --- C imports ----------------------------------------------------------------
 
 from libc.string cimport memset, memcpy
+from libc.stdint cimport uint32_t
 from libc.limits cimport UCHAR_MAX
+from libcpp cimport bool
 from libcpp.string cimport string
 from libcpp.vector cimport vector
+from libcpp.memory cimport shared_ptr
 
 from cpython cimport Py_INCREF
 from cpython.buffer cimport PyBUF_FORMAT
@@ -59,6 +62,14 @@ cdef extern from "<shared_mutex>" namespace "std" nogil:
         void lock_shared()
         void unlock_shared()
 
+cdef extern from * nogil:
+    """
+    template<typename T>
+    shared_ptr<T> pyshared(T* obj) {
+        return shared_ptr<T>(obj, PyMem_Free);
+    }
+    """
+    shared_ptr[T] pyshared[T](T* obj)
 
 # --- Python imports -----------------------------------------------------------
 
@@ -121,9 +132,9 @@ if _HOST_CPU.family.name == "aarch64":
 
 # --- Type definitions ---------------------------------------------------------
 
-ctypedef unsigned char     digit_t
-ctypedef digit_t*          seq_t
-ctypedef OpalSearchResult* OpalSearchResult_ptr
+ctypedef unsigned char       digit_t
+ctypedef shared_ptr[digit_t] seq_t
+ctypedef OpalSearchResult*   OpalSearchResult_ptr
 
 ctypedef int (*searchfn_t)(
     unsigned char*,
@@ -181,7 +192,7 @@ cdef class WriteLock:
 
 # --- Sequence encoding --------------------------------------------------------
 
-cdef inline void encode_str(str sequence, char* lut, seq_t* encoded, int* length) except *:
+cdef inline void encode_str(str sequence, char* lut, digit_t** encoded, int* length) except *:
     cdef ssize_t i
     cdef char    code
     cdef Py_UCS4 letter
@@ -191,8 +202,8 @@ cdef inline void encode_str(str sequence, char* lut, seq_t* encoded, int* length
     cdef ssize_t slen = PyUnicode_GET_LENGTH(sequence)
 
     length[0] = slen
-    encoded[0] = <seq_t> PyMem_Calloc(length[0], sizeof(digit_t))
-    if encoded[0] is NULL:
+    encoded[0] = <digit_t*> PyMem_Calloc(length[0], sizeof(digit_t))
+    if encoded[0] == NULL:
         raise MemoryError("Failed to allocate sequence data")
 
     for i in range(length[0]):
@@ -205,13 +216,13 @@ cdef inline void encode_str(str sequence, char* lut, seq_t* encoded, int* length
         encoded[0][i] = code
 
 
-cdef inline void encode_bytes(const unsigned char[:] sequence, char* lut, seq_t* encoded, int* length) except *:
+cdef inline void encode_bytes(const unsigned char[:] sequence, char* lut, digit_t** encoded, int* length) except *:
     cdef ssize_t       i
     cdef char          code
     cdef unsigned char letter
 
     length[0]  = sequence.shape[0]
-    encoded[0] = <seq_t> PyMem_Calloc(length[0], sizeof(digit_t))
+    encoded[0] = <digit_t*> PyMem_Calloc(length[0], sizeof(digit_t))
     if encoded[0] is NULL:
         raise MemoryError("Failed to allocate sequence data")
 
@@ -224,7 +235,7 @@ cdef inline void encode_bytes(const unsigned char[:] sequence, char* lut, seq_t*
             encoded[0][i] = code
 
 
-cdef inline void encode(object sequence, char* lut, seq_t* encoded, int* length) except *:
+cdef inline void encode(object sequence, char* lut, digit_t** encoded, int* length) except *:
     if isinstance(sequence, str):
         encode_str(sequence, lut, encoded, length)
     else:
@@ -689,8 +700,6 @@ cdef class FullResult(EndResult):
         return 0.0 if length < 0 else (<float> length) / reflength
 
 
-
-
 cdef class Database:
     """A database of target sequences.
 
@@ -701,11 +710,12 @@ cdef class Database:
 
     """
 
-    cdef readonly SharedMutex   lock
-    cdef readonly ScoreMatrix   score_matrix
-    cdef          vector[seq_t] _sequences
-    cdef          vector[int]   _lengths
-    cdef          searchfn_t    _search
+    cdef readonly SharedMutex      lock
+    cdef readonly ScoreMatrix      score_matrix
+    cdef          vector[seq_t]    _sequences
+    cdef          vector[digit_t*] _pointers
+    cdef          vector[int]      _lengths
+    cdef          searchfn_t       _search
 
     # --- Magic methods --------------------------------------------------------
 
@@ -735,11 +745,6 @@ cdef class Database:
         if self._search is NULL:
             raise RuntimeError("No supported SIMD backend available")
 
-    def __dealloc__(self):
-        cdef size_t i
-        for i in range(self._sequences.size()):
-            PyMem_Free(self._sequences[i])
-
     def __reduce__(self):
         return (type(self), ((), self.score_matrix), None, iter(self))
 
@@ -752,7 +757,7 @@ cdef class Database:
     def __getitem__(self, ssize_t index):
         cdef ssize_t        i
         cdef bytearray      decoded
-        cdef seq_t          encoded
+        cdef digit_t*       encoded
         cdef size_t         size
         cdef ssize_t        index_   = index
         cdef unsigned char* alphabet = self.score_matrix._mx.getAlphabet()
@@ -765,7 +770,7 @@ cdef class Database:
             if index_ < 0 or (<size_t> index_) >= size:
                 raise IndexError(index)
 
-            encoded = self._sequences[index_]
+            encoded = self._sequences[index_].get()
             decoded = bytearray(self._lengths[index_])
             for i in range(self._lengths[index_]):
                 decoded[i] = alphabet[encoded[i]]
@@ -773,10 +778,10 @@ cdef class Database:
         return decoded.decode("ascii")
 
     def __setitem__(self, ssize_t index, object sequence):
-        cdef int     length
-        cdef seq_t   encoded
-        cdef size_t  size
-        cdef ssize_t index_  = index
+        cdef int      length
+        cdef digit_t* encoded
+        cdef size_t   size
+        cdef ssize_t  index_  = index
 
         with self.lock.write:
             size = self._sequences.size()
@@ -787,10 +792,9 @@ cdef class Database:
                 raise IndexError(index)
 
             encode(sequence, self.score_matrix._ahash, &encoded, &length)
-
-            PyMem_Free(self._sequences[index_])
-            self._sequences[index_] = encoded
+            self._sequences[index_] = pyshared[digit_t](encoded)
             self._lengths[index_] = length
+            self._pointers[index_] = self._sequences[index_].get()
 
     def __delitem__(self, ssize_t index):
         cdef int     length
@@ -808,6 +812,7 @@ cdef class Database:
 
             self._sequences.erase(self._sequences.begin() + index_)
             self._lengths.erase(self._lengths.begin() + index_)
+            self._pointers.erase(self._pointers.begin() + index_)
 
     cpdef void clear(self) except *:
         """Remove all sequences from the database.
@@ -815,12 +820,9 @@ cdef class Database:
         cdef size_t i
 
         with self.lock.write:
-
-            for i in range(self._sequences.size()):
-                PyMem_Free(self._sequences[i])
-
             self._sequences.clear()
             self._lengths.clear()
+            self._pointers.clear()
 
     cpdef void extend(self, object sequences) except *:
         """Extend the database by adding sequences from an iterable.
@@ -841,6 +843,7 @@ cdef class Database:
             if hint > 0:
                 self._sequences.reserve(hint + size)
                 self._lengths.reserve(hint + size)
+                self._pointers.reserve(hint + size)
 
         # append sequences in order
         for sequence in sequences:
@@ -865,14 +868,15 @@ cdef class Database:
             ['ATGC', 'TTCA', 'AAAA']
 
         """
-        cdef int   length
-        cdef seq_t encoded
+        cdef int      length
+        cdef digit_t* encoded
 
         encode(sequence, self.score_matrix._ahash, &encoded, &length)
 
         with self.lock.write:
-            self._sequences.push_back(encoded)
+            self._sequences.push_back(pyshared[digit_t](encoded))
             self._lengths.push_back(length)
+            self._pointers.push_back(self._sequences[self._pointers.size()].get())
 
     cpdef void reverse(self) except *:
         """Reverse the database, in place.
@@ -887,6 +891,7 @@ cdef class Database:
         with self.lock.write:
             reverse(self._sequences.begin(), self._sequences.end())
             reverse(self._lengths.begin(), self._lengths.end())
+            reverse(self._pointers.begin(), self._pointers.end())
 
     cpdef void insert(self, ssize_t index, object sequence):
         """Insert a sequence in the database at a given position.
@@ -906,10 +911,10 @@ cdef class Database:
                 ['TTTT', 'ATGC', 'TTGC', 'CTGC', 'AAAA']
 
         """
-        cdef int     length
-        cdef seq_t   encoded
-        cdef size_t  size
-        cdef ssize_t index_  = index
+        cdef int      length
+        cdef digit_t* encoded
+        cdef size_t   size
+        cdef ssize_t  index_  = index
 
         with self.lock.write:
             size = self._sequences.size()
@@ -923,8 +928,9 @@ cdef class Database:
                 index_ = size
 
             encode(sequence, self.score_matrix._ahash, &encoded, &length)
-            self._sequences.insert(self._sequences.begin() + index_, encoded)
+            self._sequences.insert(self._sequences.begin() + index_, pyshared[digit_t](encoded))
             self._lengths.insert(self._lengths.begin() + index_, length)
+            self._pointers.insert(self._pointers.begin() + index_, self._sequences[index_].get())
 
 
     # --- Subset ---------------------------------------------------------------
@@ -961,14 +967,9 @@ cdef class Database:
 
         for i, b in enumerate(bitmask):
             if b:
-                length = self._lengths[i]
-                seq = <seq_t> PyMem_Calloc(length, sizeof(digit_t))
-                if seq is NULL:
-                    raise MemoryError("Failed to allocate sequence data")
-                with nogil:
-                    memcpy(seq, self._sequences[i], length * sizeof(digit_t))
-                    subdb._sequences.push_back(seq)
-                    subdb._lengths.push_back(length)
+                subdb._sequences.push_back(self._sequences[i])
+                subdb._lengths.push_back(self._lengths[i])
+                subdb._pointers.push_back(subdb._sequences[i].get())
 
         return subdb
 
@@ -999,19 +1000,15 @@ cdef class Database:
         subdb.score_matrix = self.score_matrix
         subdb._search = self._search
         subdb._sequences.reserve(len(indices))
+        subdb._pointers.reserve(len(indices))
         subdb._lengths.reserve(len(indices))
 
         for index in indices:
             if index < 0 or index >= len(self):
                 raise IndexError(index)
-            length = self._lengths[index]
-            seq = <seq_t> PyMem_Calloc(length, sizeof(digit_t))
-            if seq is NULL:
-                raise MemoryError("Failed to allocate sequence data")
-            with nogil:
-                memcpy(seq, self._sequences[index], length * sizeof(digit_t))
-                subdb._sequences.push_back(seq)
-                subdb._lengths.push_back(length)
+            subdb._sequences.push_back(self._sequences[index])
+            subdb._lengths.push_back(self._lengths[index])
+            subdb._pointers.push_back(subdb._sequences[index].get())
 
         return subdb
 
@@ -1093,7 +1090,7 @@ cdef class Database:
         cdef list                         results
         cdef vector[OpalSearchResult_ptr] results_raw
         cdef size_t                       size
-        cdef seq_t                        query       = NULL
+        cdef digit_t*                     query       = NULL
 
         # validate parameters
         if mode in _OPAL_SEARCH_MODES:
@@ -1132,8 +1129,8 @@ cdef class Database:
                     retcode = self._search(
                         query,
                         length,
-                        self._sequences.data(),
-                        self._sequences.size(),
+                        self._pointers.data(),
+                        self._pointers.size(),
                         self._lengths.data(),
                         gap_open,
                         gap_extend,
