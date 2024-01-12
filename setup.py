@@ -512,6 +512,21 @@ class clean(_clean):
                 _eprint("removing {!r}".format(file))
                 os.remove(file)
 
+        for ext in self.distribution.ext_modules:
+            if isinstance(ext, ExtensionTemplate):
+                for source_file in ext.templates:
+                    if os.path.exists(source_file):
+                        _eprint("removing {!r}".format(source_file))
+                        os.remove(source_file)
+
+            for source_file in ext.sources:
+                if source_file.endswith(".pyx"):
+                    ext = ".cpp" if ext.language == "c++" else ".c"
+                    c_file = source_file.replace(".pyx", ext)
+                    if os.path.exists(c_file):
+                        _eprint("removing {!r}".format(c_file))
+                        os.remove(c_file)
+
         _clean.run(self)
 
 
@@ -528,7 +543,7 @@ setuptools.setup(
             ],
             templates={
                 os.path.join("pyopal", "platform", "neon.pxd"): os.path.join("pyopal", "platform", "pxd.in"),
-                os.path.join("pyopal", "platform", "sse2.pyx"): os.path.join("pyopal", "platform", "pyx.in"),
+                os.path.join("pyopal", "platform", "neon.pyx"): os.path.join("pyopal", "platform", "pyx.in"),
             },
             sources=[
                 os.path.join("vendor", "opal", "src", "opal.cpp"),
