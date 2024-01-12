@@ -48,7 +48,9 @@ elif re.match("^(aarch64|arm64)$", MACHINE):
     TARGET_CPU = "aarch64"
 elif re.match("^arm", MACHINE):
     TARGET_CPU = "arm"
-elif re.match("(x86_64)|(AMD64|amd64)|(^i.86$)", MACHINE):
+elif re.match("(x86_64)|(AMD64|amd64)", MACHINE):
+    TARGET_CPU = "x86-64"
+elif re.match("x86|(^i.86$)", MACHINE):
     TARGET_CPU = "x86"
 elif re.match("^(powerpc|ppc)", MACHINE):
     TARGET_CPU = "ppc"
@@ -454,7 +456,7 @@ class build_ext(_build_ext):
             ext.include_dirs.append(self._clib_cmd.build_clib)
 
         # check if we can build platform-specific code
-        if TARGET_CPU == "x86":
+        if TARGET_CPU == "x86" or TARGET_CPU == "x86-64":
             if not self._simd_disabled["AVX2"] and self._check_avx2():
                 cython_args["compile_time_env"]["AVX2_BUILD_SUPPORT"] = True
                 self._simd_supported["AVX2"] = True
