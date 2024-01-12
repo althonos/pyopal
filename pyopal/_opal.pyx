@@ -34,13 +34,13 @@ cimport opal.score_matrix
 from opal cimport OpalSearchResult
 
 if NEON_BUILD_SUPPORT:
-    from pyopal._opal_neon cimport opalSearchDatabaseNEON
+    from pyopal.platform.neon cimport opalSearchDatabaseNEON
 if SSE2_BUILD_SUPPORT:
-    from pyopal._opal_sse2 cimport opalSearchDatabaseSSE2
+    from pyopal.platform.sse2 cimport opalSearchDatabaseSSE2
 if SSE4_BUILD_SUPPORT:
-    from pyopal._opal_sse4 cimport opalSearchDatabaseSSE4
+    from pyopal.platform.sse4 cimport opalSearchDatabaseSSE4
 if AVX2_BUILD_SUPPORT:
-    from pyopal._opal_avx2 cimport opalSearchDatabaseAVX2
+    from pyopal.platform.avx2 cimport opalSearchDatabaseAVX2
 
 cdef extern from "<cctype>" namespace "std" nogil:
     cdef int toupper(int ch)

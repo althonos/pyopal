@@ -10,6 +10,7 @@ import re
 import setuptools
 import setuptools.extension
 import subprocess
+import string
 import sys
 from distutils.command.clean import clean as _clean
 from distutils.errors import CompileError
@@ -27,9 +28,13 @@ except ImportError as err:
 class Extension(setuptools.extension.Extension):
     def __init__(self, *args, **kwargs):
         self._needs_stub = False
-        self.requires = kwargs.pop("requires", None)
+        self.simd = kwargs.pop("simd", None)
         super().__init__(*args, **kwargs)
 
+class ExtensionTemplate(Extension):
+    def __init__(self, *args, **kwargs):
+        self.templates = kwargs.pop("templates", {})
+        super().__init__(*args, **kwargs)
 
 # --- Constants -----------------------------------------------------------------
 
@@ -316,6 +321,19 @@ class build_ext(_build_ext):
             for obj in filter(os.path.isfile, objects):
                 os.remove(obj)
 
+    # --- Template code ---
+
+    def substitute_template(self, template_file, output_file, metadata):
+        with open(template_file) as f:
+            template = string.Template(f.read())
+        with open(output_file, "w") as dst:
+            dst.write(template.substitute(metadata))
+
+    def generate_extension(self, ext):
+        metadata = dict(SIMD=ext.simd)
+        for out_file, template_file in ext.templates.items():
+            self.make_file([template_file], out_file, self.substitute_template, (template_file, out_file, metadata))
+
     # --- Build code ---
 
     def build_extension(self, ext):
@@ -384,6 +402,11 @@ class build_ext(_build_ext):
         # remove universal compilation flags for OSX
         if platform.system() == "Darwin":
             _patch_osx_compiler(self.compiler)
+
+        # generate files from templates:
+        for i, ext in enumerate(self.extensions):
+            if isinstance(ext, ExtensionTemplate):
+                self.generate_extension(ext)
 
         # use debug directives with Cython if building in debug mode
         cython_args = {
@@ -457,11 +480,11 @@ class build_ext(_build_ext):
         # filter out extensions missing required CPU features
         extensions = []
         for ext in self.extensions:
-            if ext.requires is None:
+            if ext.simd is None:
                 extensions.append(ext)
-            elif self._simd_supported[ext.requires]:
-                ext.extra_compile_args.extend(self._simd_flags[ext.requires])
-                ext.extra_link_args.extend(self._simd_flags[ext.requires])
+            elif self._simd_supported[ext.simd]:
+                ext.extra_compile_args.extend(self._simd_flags[ext.simd])
+                ext.extra_link_args.extend(self._simd_flags[ext.simd])
                 extensions.append(ext)
         if not extensions:
             raise RuntimeError("Cannot build Opal for platform {}, no SIMD backend supported".format(MACHINE))
@@ -496,16 +519,20 @@ class clean(_clean):
 
 setuptools.setup(
     ext_modules=[
-        Extension(
-            "pyopal._opal_neon",
+        ExtensionTemplate(
+            "pyopal.platform.neon",
             language="c++",
-            requires="NEON",
+            simd="NEON",
             define_macros=[
                 ("__ARM_NEON", 1),
             ],
+            templates={
+                os.path.join("pyopal", "platform", "neon.pxd"): os.path.join("pyopal", "platform", "pxd.in"),
+                os.path.join("pyopal", "platform", "sse2.pyx"): os.path.join("pyopal", "platform", "pyx.in"),
+            },
             sources=[
                 os.path.join("vendor", "opal", "src", "opal.cpp"),
-                os.path.join("pyopal", "_opal_neon.pyx"),
+                os.path.join("pyopal", "platform", "neon.pyx"),
             ],
             include_dirs=[
                 os.path.join("vendor", "opal", "src"),
@@ -513,16 +540,20 @@ setuptools.setup(
                 "include",
             ],
         ),
-        Extension(
-            "pyopal._opal_sse2",
+        ExtensionTemplate(
+            "pyopal.platform.sse2",
             language="c++",
-            requires="SSE2",
+            simd="SSE2",
             define_macros=[
                 ("__SSE2__", 1),
             ],
+            templates={
+                os.path.join("pyopal", "platform", "sse2.pxd"): os.path.join("pyopal", "platform", "pxd.in"),
+                os.path.join("pyopal", "platform", "sse2.pyx"): os.path.join("pyopal", "platform", "pyx.in"),
+            },
             sources=[
                 os.path.join("vendor", "opal", "src", "opal.cpp"),
-                os.path.join("pyopal", "_opal_sse2.pyx"),
+                os.path.join("pyopal", "platform", "sse2.pyx"),
             ],
             include_dirs=[
                 os.path.join("vendor", "opal", "src"),
@@ -530,16 +561,20 @@ setuptools.setup(
                 "include",
             ],
         ),
-        Extension(
-            "pyopal._opal_sse4",
+        ExtensionTemplate(
+            "pyopal.platform.sse4",
             language="c++",
-            requires="SSE4",
+            simd="SSE4",
             define_macros=[
                 ("__SSE4_1__", 1),
             ],
+            templates={
+                os.path.join("pyopal", "platform", "sse4.pxd"): os.path.join("pyopal", "platform", "pxd.in"),
+                os.path.join("pyopal", "platform", "sse4.pyx"): os.path.join("pyopal", "platform", "pyx.in"),
+            },
             sources=[
                 os.path.join("vendor", "opal", "src", "opal.cpp"),
-                os.path.join("pyopal", "_opal_sse4.pyx"),
+                os.path.join("pyopal", "platform", "sse4.pyx"),
             ],
             include_dirs=[
                 os.path.join("vendor", "opal", "src"),
@@ -547,16 +582,20 @@ setuptools.setup(
                 "include",
             ],
         ),
-        Extension(
-            "pyopal._opal_avx2",
+        ExtensionTemplate(
+            "pyopal.platform.avx2",
             language="c++",
-            requires="AVX2",
+            simd="AVX2",
             define_macros=[
                 ("__AVX2__", 1),
             ],
+            templates={
+                os.path.join("pyopal", "platform", "avx2.pxd"): os.path.join("pyopal", "platform", "pxd.in"),
+                os.path.join("pyopal", "platform", "avx2.pyx"): os.path.join("pyopal", "platform", "pyx.in"),
+            },
             sources=[
                 os.path.join("vendor", "opal", "src", "opal.cpp"),
-                os.path.join("pyopal", "_opal_avx2.pyx"),
+                os.path.join("pyopal", "platform", "avx2.pyx"),
             ],
             include_dirs=[
                 os.path.join("vendor", "opal", "src"),
