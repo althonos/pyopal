@@ -610,11 +610,11 @@ setuptools.setup(
             ],
         ),
         Extension(
-            "pyopal._opal",
+            "pyopal.lib",
             language="c++",
             sources=[
                 os.path.join("vendor", "opal", "src", "ScoreMatrix.cpp"),
-                os.path.join("pyopal", "_opal.pyx"),
+                os.path.join("pyopal", "lib.pyx"),
             ],
             extra_compile_args=[],
             include_dirs=[

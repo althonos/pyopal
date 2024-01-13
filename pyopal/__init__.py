@@ -4,8 +4,8 @@ from ._version import __version__
 __author__ = "Martin Larralde <martin.larralde@embl.de>"
 __license__ = "MIT"
 
-from . import _opal
-from ._opal import (
+from . import lib
+from .lib import (
     Database,
     ScoreMatrix,
     ScoreResult,
@@ -13,7 +13,7 @@ from ._opal import (
     FullResult,
 )
 
-__doc__ = _opal.__doc__
+__doc__ = lib.__doc__
 
 # Small addition to the docstring: we want to show a link redirecting to the
 # rendered version of the documentation, but this can only work when Python
