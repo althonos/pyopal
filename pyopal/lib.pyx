@@ -35,7 +35,6 @@ from cpython.unicode cimport (
 
 from . cimport opal
 from .opal cimport OpalSearchResult
-from .opal.score_matrix cimport ScoreMatrix as _ScoreMatrix
 from .shared_mutex cimport shared_mutex
 
 if NEON_BUILD_SUPPORT:
@@ -72,6 +71,7 @@ from string import ascii_lowercase
 
 include "_version.py"
 include "_patch.pxi"
+include "matrices.pxi"
 
 # --- Constants ----------------------------------------------------------------
 
@@ -181,16 +181,24 @@ cdef class Alphabet:
             raise ValueError("duplicate symbols in alphabet letters")
         if any(x != '*' and not x.isupper() for x in letters):
             raise ValueError("alphabet must only contain uppercase characters or wildcard")
+        # NOTE(@althonos): may be required implicitly by SIMD implementations
+        if len(letters) > MAX_ALPHABET_SIZE:
+            raise ValueError(f"Cannot use alphabet of more than 32 symbols")
 
         self.letters = letters
+        self.length = len(letters)
         self._unknown = letters.find('*')
 
-        memset(&self._ahash[0], self._unknown, UCHAR_MAX * sizeof(char))
+        memset(&self._letters[0], 0, MAX_ALPHABET_SIZE)
         for i, x in enumerate(letters.encode('ascii')):
-            self._ahash[x] = i
+            self._letters[i] = x
+
+        memset(&self._ahash[0], self._unknown, UCHAR_MAX * sizeof(char))
+        for i in range(self.length):
+            self._ahash[self._letters[i]] = i
 
     def __len__(self):
-        return len(self.letters)
+        return self.length
 
     def __contains__(self, object item):
         return item in self.letters
@@ -294,23 +302,13 @@ cdef class ScoreMatrix:
     """
 
     @classmethod
-    def aa(cls):
+    def aa(cls, name: str = "BLOSUM50"):
         """Create a default amino-acid scoring matrix (BLOSUM50).
         """
-        cdef int           i
-        cdef char          unknown
-        cdef unsigned char letter
-        cdef size_t        length
-        cdef ScoreMatrix   matrix  = ScoreMatrix.__new__(ScoreMatrix)
-
-        matrix._mx = _ScoreMatrix.getBlosum50()
-
-        length = matrix._mx.getAlphabetLength()
-        matrix._shape[0] = matrix._shape[1] = length
-
-        letters = PyBytes_FromStringAndSize(<char*> matrix._mx.getAlphabet(), length)
-        matrix.alphabet = Alphabet(letters.decode('ascii'))
-        return matrix
+        if not name in _SCORE_MATRICES:
+            raise ValueError(f"unknown scoring matrix: {name!r}")
+        letters, matrix = _SCORE_MATRICES[name]
+        return cls(letters, matrix)
 
     def __init__(self, object alphabet not None, object matrix not None):
         """Create a new score matrix from the given alphabet and scores.
@@ -344,11 +342,7 @@ cdef class ScoreMatrix:
         cdef int           j
         cdef object        row
         cdef int           value
-        cdef str           letter
-        cdef char          unknown
         cdef int           length    = len(matrix)
-        cdef vector[uchar] abcvector = vector[uchar](length, 0)
-        cdef vector[int]   scores    = vector[int](length*length, 0)
 
         if isinstance(alphabet, Alphabet):
             self.alphabet = alphabet
@@ -362,19 +356,13 @@ cdef class ScoreMatrix:
         if not all(len(row) == length for row in matrix):
             raise ValueError("`matrix` must be a square matrix")
 
-        # FIXME: may be required implicitly by SIMD implementations
-        # if length > 32:
-        #     raise ValueError(f"Cannot use alphabet of more than 32 symbols: {alphabet!r}")
-
-        # copy the alphabet for Opal
-        for i, letter in enumerate(self.alphabet.letters):
-            abcvector[i] = ord(letter)
+        # record shape
+        self._shape[0] = self._shape[1] = self.alphabet.length
         # copy the scores
+        self._matrix = vector[int](length * length, 0)
         for i, row in enumerate(matrix):
             for j, value in enumerate(row):
-                scores[i*length+j] = value
-        # create the Opal matrix
-        self._mx = _ScoreMatrix(abcvector, scores)
+                self._matrix[i*length+j] = value
 
     def __repr__(self):
         cdef str ty = type(self).__name__
@@ -388,7 +376,7 @@ cdef class ScoreMatrix:
             buffer.format = b"i"
         else:
             buffer.format = NULL
-        buffer.buf = self._mx.getMatrix()
+        buffer.buf = &self._matrix[0]
         buffer.internal = NULL
         buffer.itemsize = sizeof(int)
         buffer.len = self._shape[0] * self._shape[1] * sizeof(int)
@@ -405,8 +393,8 @@ cdef class ScoreMatrix:
         """
         cdef int        i
         cdef int        j
-        cdef int        length = self._mx.getAlphabetLength()
-        cdef const int* scores = self._mx.getMatrix()
+        cdef int        length = self.alphabet.length
+        cdef const int* scores = self._matrix.data()
 
         return [
             [ scores[i*length + j] for j in range(length) ]
@@ -1168,8 +1156,8 @@ cdef class Database:
                     self._lengths.data(),
                     gap_open,
                     gap_extend,
-                    score_matrix._mx.getMatrix(),
-                    score_matrix._mx.getAlphabetLength(),
+                    score_matrix._matrix.data(),
+                    self.alphabet.length,
                     results_raw.data(),
                     _mode,
                     _algo,

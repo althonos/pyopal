@@ -61,8 +61,9 @@ cdef class WriteLock:
 
 cdef class Alphabet:
     cdef readonly str letters
-    cdef readonly str unknown
+    cdef readonly int length
     cdef char        _unknown
+    cdef char        _letters[MAX_ALPHABET_SIZE]
     cdef char        _ahash[UCHAR_MAX]
 
     cdef void encode_raw(self, const unsigned char[:] sequence, digit_t[:] encoded)
@@ -72,7 +73,7 @@ cdef class Alphabet:
     cpdef str decode(self, object encoded)
 
 cdef class ScoreMatrix:
-    cdef _ScoreMatrix      _mx
+    cdef vector[int]       _matrix
     cdef Py_ssize_t        _shape[2]
     cdef readonly Alphabet alphabet
 
