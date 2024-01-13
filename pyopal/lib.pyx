@@ -761,25 +761,18 @@ cdef class Database:
 
     # --- Encoding -------------------------------------------------------------
 
-    cdef seq_t _encode(self, object sequence) except *:
+    cdef seq_t _encode(self, object sequence) except *:  
         cdef size_t   length  = len(sequence)
-        cdef digit_t* encoded = NULL
+        cdef bytes    encoded = self.alphabet.encode(sequence)
+        cdef char*    indices = encoded
+        cdef digit_t* dst     = NULL
 
-        if isinstance(sequence, str):
-            sequence = sequence.encode('ascii')
-
-        encoded = <digit_t*> PyMem_Calloc(length, sizeof(digit_t))
-        if encoded is NULL:
+        dst = <digit_t*> PyMem_Calloc(length, sizeof(digit_t))
+        if dst is NULL:
             raise MemoryError("Failed to allocate sequence data")
 
-        try:
-            view = PyMemoryView_FromMemory(<char*> encoded, length, PyBUF_WRITE)
-            self.alphabet.encode_raw(sequence, view)
-        except:
-            PyMem_Free(encoded)
-            raise
-
-        return pyshared(encoded)
+        memcpy(<void*> &dst[0], <void*> indices, length * sizeof(digit_t))
+        return pyshared(dst)
 
     cdef str _decode(self, seq_t encoded, int length) except *:
         view = PyMemoryView_FromMemory(<char*> encoded.get(), length, PyBUF_READ)
