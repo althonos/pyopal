@@ -23,7 +23,8 @@
 
 [Opal](https://github.com/Martinsos/opal) is a sequence aligner enabling fast
 sequence similarity search using either of the Smith-Waterman, semi-global or
-Needleman-Wunsch algorithms.
+Needleman-Wunsch algorithms. It is used part of the SW#db method[\[1\]](#ref1) 
+to align a query sequence to multiple database sequences on CPU.
 
 PyOpal is a Python module that provides bindings to [Opal](https://github.com/Martinsos/opal)
 using [Cython](https://cython.org/). It implements a user-friendly, Pythonic
@@ -45,17 +46,19 @@ following advantages:
 - **wider platform support**: The Opal code has been backported to work on SSE2
   rather than SSE4.1, allowing PyOpal to run on older x86 CPUs (all x86 CPUs
   support it since 2003). In addition, Armv7 and Aarch64 CPUs are also
-  supported if they implement NEON extensions.
+  supported if they implement NEON extensions. Finally, the C++ code of Opal
+  has been modified to compile on Windows.
 
 ## 🔧 Installing
 
-PyOpal is available for all modern versions (3.6+), depending only 
+PyOpal is available for all modern versions (3.6+), depending either 
 on the lightweight Python package [`archspec`](https://pypi.org/project/archspec) 
-for runtime CPU feature detection.
+or on [`py-cpuinfo`](https://pypi.org/project/archspec) for runtime CPU 
+feature detection, depending on the operating system.
 
 It can be installed directly from [PyPI](https://pypi.org/project/pyopal/),
-which hosts some pre-built x86-64 and Aarch64 wheels for Linux and MacOS,
-as well as the code required to compile from source with Cython:
+which hosts some pre-built x86-64 and Aarch64 wheels for Linux, MacOS, and
+Windows, as well as the code required to compile from source with Cython:
 ```console
 $ pip install pyopal
 ```
@@ -65,6 +68,9 @@ package:
 ```console
 $ conda install -c bioconda pyopal
 ```
+
+Check the [*install* page](https://pyopal.readthedocs.io/en/stable/install.html)
+of the documentation for other ways to install PyOpal on your machine.
 
 ## 💡 Example
 
@@ -164,3 +170,8 @@ by the [Opal authors](https://github.com/Martinsos). It was developed
 by [Martin Larralde](https://github.com/althonos/) during his PhD project
 at the [European Molecular Biology Laboratory](https://www.embl.de/) in
 the [Zeller team](https://github.com/zellerlab).*
+
+
+## 📚 References
+
+- <a id="ref1">\[1\]</a> Korpar Matija, Martin Šošić, Dino Blažeka, Mile Šikić. SW#db: ‘GPU-Accelerated Exact Sequence Similarity Database Search’. PLoS One. 2015 Dec 31;10(12):e0145857. [doi:10.1371/journal.pone.0145857](https://doi.org/10.1371/journal.pone.0145857). [PMID:26719890](https://pubmed.ncbi.nlm.nih.gov/26719890). [PMC4699916](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4699916/).
