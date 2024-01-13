@@ -16,17 +16,22 @@ class Alphabet(typing.Sequence[str]):
     def __getitem__(self, index: int) -> str: ...
     def __contains__(self, value: object) -> bool: ...
     def __reduce__(self) -> typing.Tuple[typing.Type[Alphabet], typing.Tuple[str]]: ...
+    def __repr__(self) -> str: ...
+    def __eq__(self, obj: object) -> bool: ...
+    def __str__(self) -> str: ...
 
 class ScoreMatrix:
     @classmethod
     def aa(cls) -> ScoreMatrix: ...
     def __init__(
-        self, alphabet: str, matrix: typing.Iterable[typing.Iterable[int]]
+        self, 
+        alphabet: typing.Union[str, Alphabet], 
+        matrix: typing.Iterable[typing.Iterable[int]],
     ) -> None: ...
     def __repr__(self) -> str: ...
     def __reduce__(self) -> typing.Tuple[object, ...]: ...
     @property
-    def alphabet(self) -> str: ...
+    def alphabet(self) -> Alphabet: ...
     @property
     def matrix(self) -> typing.List[typing.List[int]]: ...
 
@@ -78,8 +83,10 @@ class Database(typing.MutableSequence[str]):
     def __init__(
         self,
         sequences: typing.Iterable[typing.Union[str, bytes, bytearray]] = (),
-        score_matrix: typing.Optional[ScoreMatrix] = None,
+        alphabet: typing.Optional[Alphabet] = None,
     ) -> None: ...
+    @property
+    def alphabet(self) -> Alphabet: ...
     def __len__(self) -> int: ...
     def __getitem__(self, index: int) -> str: ...
     def __setitem__(
@@ -101,6 +108,7 @@ class Database(typing.MutableSequence[str]):
     def search(
         self,
         sequence: typing.Union[str, bytes, bytearray],
+        score_matrix: typing.Optional[ScoreMatrix],
         *,
         gap_open: int = 3,
         gap_extend: int = 1,
@@ -112,6 +120,7 @@ class Database(typing.MutableSequence[str]):
     def search(
         self,
         sequence: typing.Union[str, bytes, bytearray],
+        score_matrix: typing.Optional[ScoreMatrix],
         *,
         gap_open: int = 3,
         gap_extend: int = 1,
@@ -123,6 +132,7 @@ class Database(typing.MutableSequence[str]):
     def search(
         self,
         sequence: typing.Union[str, bytes, bytearray],
+        score_matrix: typing.Optional[ScoreMatrix],
         *,
         gap_open: int = 3,
         gap_extend: int = 1,

@@ -251,6 +251,21 @@ cdef class Alphabet:
     def __reduce__(self):
         return type(self), (self.letters,)
 
+    def __repr__(self):
+        return f"{type(self).__name__}({self.letters!r})"
+
+    def __str__(self):
+        return self.letters
+
+    def __eq__(self, object item):
+        if isinstance(item, str):
+            return self.letters == item
+        elif isinstance(item, Alphabet):
+            return self.letters == item.letters
+        else:
+            return False
+
+
 cdef class ScoreMatrix:
     """A score matrix for comparing character matches in sequences.
     """
@@ -678,10 +693,16 @@ cdef class Database:
 
     Like many biological sequence analysis tools, Opal encodes sequences
     with an alphabet for faster indexing of matrices. Sequences inserted in
-    a database are stored in encoded format using the alphabet of the
-    `ScoreMatrix` given on instantiation.
+    a database are stored in encoded format using the alphabet given on 
+    instantiation.
+
+    Attributes:
+        alphabet (`~pyopal.Alphabet`): The alphabet object used for encoding
+            the sequences stored in the sequence database.
 
     """
+
+    _DEFAULT_SCORE_MATRIX = ScoreMatrix.aa()
 
     # --- Magic methods --------------------------------------------------------
 
@@ -691,11 +712,12 @@ cdef class Database:
         self._lengths   = vector[int]()
         self._search    = NULL
 
-    def __init__(self, object sequences=(), ScoreMatrix score_matrix=None):
-        # reset the collection is `__init__` is called more than once
+    def __init__(self, object sequences=(), Alphabet alphabet = None):
+        # record the alphabet
+        self.alphabet = self._DEFAULT_SCORE_MATRIX.alphabet if alphabet is None else alphabet
+
+        # reset the collection if `__init__` is called more than once
         self.clear()
-        # record the score matrix
-        self.score_matrix = score_matrix or ScoreMatrix.aa()
         # add the sequences to the database
         self.extend(sequences)
 
@@ -712,7 +734,7 @@ cdef class Database:
             raise RuntimeError("No supported SIMD backend available")
 
     def __reduce__(self):
-        return (type(self), ((), self.score_matrix), None, iter(self))
+        return (type(self), ((), self.alphabet), None, iter(self))
 
     # --- Sequence interface ---------------------------------------------------
 
@@ -726,7 +748,7 @@ cdef class Database:
         cdef digit_t*  encoded
         cdef size_t    size
         cdef ssize_t   index_   = index
-        cdef str       alphabet = self.score_matrix.alphabet.letters
+        cdef str       alphabet = self.alphabet.letters
 
         with self.lock.read:
             size = self._sequences.size()
@@ -757,7 +779,7 @@ cdef class Database:
             if index_ < 0 or (<size_t> index_) >= size:
                 raise IndexError(index)
 
-            encode(sequence, self.score_matrix.alphabet._ahash, &encoded, &length)
+            encode(sequence, self.alphabet._ahash, &encoded, &length)
             self._sequences[index_] = pyshared[digit_t](encoded)
             self._lengths[index_] = length
             self._pointers[index_] = self._sequences[index_].get()
@@ -837,7 +859,7 @@ cdef class Database:
         cdef int      length
         cdef digit_t* encoded
 
-        encode(sequence, self.score_matrix.alphabet._ahash, &encoded, &length)
+        encode(sequence, self.alphabet._ahash, &encoded, &length)
 
         with self.lock.write:
             self._sequences.push_back(pyshared[digit_t](encoded))
@@ -893,7 +915,7 @@ cdef class Database:
             elif (<size_t> index_) >= size:
                 index_ = size
 
-            encode(sequence, self.score_matrix.alphabet._ahash, &encoded, &length)
+            encode(sequence, self.alphabet._ahash, &encoded, &length)
             self._sequences.insert(self._sequences.begin() + index_, pyshared[digit_t](encoded))
             self._lengths.insert(self._lengths.begin() + index_, length)
             self._pointers.insert(self._pointers.begin() + index_, self._sequences[index_].get())
@@ -928,7 +950,7 @@ cdef class Database:
             raise IndexError(bitmask)
 
         subdb = Database.__new__(Database)
-        subdb.score_matrix = self.score_matrix
+        subdb.alphabet = self.alphabet
         subdb._search = self._search
 
         for i, b in enumerate(bitmask):
@@ -963,7 +985,7 @@ cdef class Database:
         cdef Database subdb
 
         subdb = Database.__new__(Database)
-        subdb.score_matrix = self.score_matrix
+        subdb.alphabet = self.alphabet
         subdb._search = self._search
         subdb._sequences.reserve(len(indices))
         subdb._pointers.reserve(len(indices))
@@ -983,6 +1005,7 @@ cdef class Database:
     def search(
         self,
         object sequence,
+        ScoreMatrix score_matrix = None,
         *,
         int gap_open = 3,
         int gap_extend = 1,
@@ -1041,7 +1064,7 @@ cdef class Database:
                 a platform with no supported SIMD backend.
 
         """
-        assert self.score_matrix is not None
+        assert self.alphabet is not None
         assert self._search is not NULL
 
         cdef int                          _mode
@@ -1073,8 +1096,14 @@ cdef class Database:
         else:
             raise ValueError(f"Invalid algorithm: {algorithm!r}")
 
+        # check score matrix
+        if score_matrix is None:
+            score_matrix = self._DEFAULT_SCORE_MATRIX
+        if score_matrix.alphabet != self.alphabet:
+            raise ValueError("database and score matrix have different alphabets")
+
         # Prepare query
-        encode(sequence, self.score_matrix.alphabet._ahash, &query, &length)
+        encode(sequence, self.alphabet._ahash, &query, &length)
         try:
             with self.lock.read:
                 size = self._sequences.size()
@@ -1100,8 +1129,8 @@ cdef class Database:
                         self._lengths.data(),
                         gap_open,
                         gap_extend,
-                        self.score_matrix._mx.getMatrix(),
-                        self.score_matrix._mx.getAlphabetLength(),
+                        score_matrix._mx.getMatrix(),
+                        score_matrix._mx.getAlphabetLength(),
                         results_raw.data(),
                         _mode,
                         _algo,

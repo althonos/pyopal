@@ -86,7 +86,7 @@ cdef class FullResult(EndResult):
 
 cdef class Database:
     cdef readonly SharedMutex      lock
-    cdef readonly ScoreMatrix      score_matrix
+    cdef readonly Alphabet         alphabet
     cdef          vector[seq_t]    _sequences
     cdef          vector[digit_t*] _pointers
     cdef          vector[int]      _lengths
