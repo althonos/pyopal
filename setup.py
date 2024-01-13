@@ -3,6 +3,7 @@ import functools
 import glob
 import itertools
 import io
+import json
 import multiprocessing.pool
 import os
 import platform
@@ -117,6 +118,45 @@ class sdist(_sdist):
             c.write(pyproject)
         # run the rest of the packaging
         _sdist.run(self)
+
+
+class build_matrices(setuptools.Command):
+
+    user_options = [
+        ('force', 'f', 'force generation of files')
+    ]
+
+    def initialize_options(self) -> None:
+        self.force = False
+        self.folder = None
+        self.output = None
+
+    def finalize_options(self) -> None:
+        self.folder = os.path.join("vendor", "opal", "src", "score_matrices")
+        self.output = os.path.join("pyopal", "matrices.pxi")
+
+    def run(self):
+        matrix_files = glob.glob(os.path.join(self.folder, "*.mat"))
+        self.make_file(matrix_files, self.output, self._generate_matrices, (matrix_files, self.output))
+
+    def _parse_matrix_file(self, matrix_file):
+        with open(matrix_file) as f:
+            letters = ''.join(f.readline().strip().split())
+            matrix = [
+                list(map(int, line.strip().split()))
+                for line in map(str.strip, f)
+                if line
+            ]
+            return letters, matrix
+
+    def _generate_matrices(self, matrix_files, output_file):
+        matrices = {}
+        for matrix_file in matrix_files:
+            matrix_name = os.path.splitext(os.path.basename(matrix_file))[0].upper()
+            matrices[matrix_name] = self._parse_matrix_file(matrix_file)
+
+        with open(output_file, "w") as dst:
+            dst.write("cdef dict _SCORE_MATRICES = {}".format(json.dumps(matrices, indent=4)))
 
 
 class build_ext(_build_ext):
@@ -402,6 +442,12 @@ class build_ext(_build_ext):
         if platform.system() == "Darwin":
             _patch_osx_compiler(self.compiler)
 
+        # generate score matrices
+        if not self.distribution.have_run.get("build_matrices", False):
+            _build_cmd = self.get_finalized_command("build_matrices")
+            _build_cmd.force = self.force
+            _build_cmd.run()
+
         # generate files from templates:
         for i, ext in enumerate(self.extensions):
             if isinstance(ext, ExtensionTemplate):
@@ -419,6 +465,7 @@ class build_ext(_build_ext):
                 "SYS_VERSION_INFO_MAJOR": sys.version_info.major,
                 "SYS_VERSION_INFO_MINOR": sys.version_info.minor,
                 "SYS_VERSION_INFO_MICRO": sys.version_info.micro,
+                "MAX_ALPHABET_SIZE": 32,
                 "DEFAULT_BUFFER_SIZE": io.DEFAULT_BUFFER_SIZE,
                 "TARGET_CPU": self.target_cpu,
                 "TARGET_SYSTEM": self.target_system,
@@ -609,7 +656,6 @@ setuptools.setup(
             "pyopal.lib",
             language="c++",
             sources=[
-                os.path.join("vendor", "opal", "src", "ScoreMatrix.cpp"),
                 os.path.join("pyopal", "lib.pyx"),
             ],
             extra_compile_args=[],
@@ -622,6 +668,7 @@ setuptools.setup(
     cmdclass={
         "sdist": sdist,
         "build_ext": build_ext,
+        "build_matrices": build_matrices,
         "clean": clean,
     },
 )
