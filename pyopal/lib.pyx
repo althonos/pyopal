@@ -16,7 +16,6 @@ from libc.string cimport memset, memcpy
 from libc.stdint cimport uint32_t
 from libc.limits cimport UCHAR_MAX
 from libcpp cimport bool
-from libcpp.string cimport string
 from libcpp.vector cimport vector
 from libcpp.memory cimport shared_ptr
 from shared_mutex cimport shared_mutex
@@ -67,6 +66,7 @@ cdef extern from * nogil:
 # --- Python imports -----------------------------------------------------------
 
 import operator
+from string import ascii_lowercase
 
 include "_version.py"
 include "_patch.pxi"
@@ -222,6 +222,35 @@ cdef inline void encode(object sequence, char* lut, digit_t** encoded, int* leng
 
 # --- Python classes -----------------------------------------------------------
 
+cdef class Alphabet:
+    """A class for ordinal encoding of sequences.
+    """
+
+    def __init__(self, str letters = "ARNDCQEGHILKMFPSTWYVBZX*"):
+        if len(letters) != len(set(letters)):
+            raise ValueError("duplicate symbols in alphabet letters", letters)
+        if set(letters) & set(ascii_lowercase):
+            raise ValueError("alphabet must only contain uppercase characters")
+        
+        self.letters = letters
+        self._unknown = letters.find('*')
+
+        memset(&self._ahash[0], -1, UCHAR_MAX * sizeof(char))
+        for i, x in enumerate(letters.encode('ascii')):
+            self._ahash[x] = i
+
+    def __len__(self):
+        return len(self.letters)
+
+    def __contains__(self, object item):
+        return item in self.letters
+
+    def __getitem__(self, ssize_t index):
+        return self.letters[index]
+
+    def __reduce__(self):
+        return type(self), (self.letters,)
+
 cdef class ScoreMatrix:
     """A score matrix for comparing character matches in sequences.
     """
@@ -230,39 +259,27 @@ cdef class ScoreMatrix:
     def aa(cls):
         """Create a default amino-acid scoring matrix (BLOSUM50).
         """
-        cdef int                  i
-        cdef char                 unknown
-        cdef unsigned char        letter
-        cdef const unsigned char* alphabet
-        cdef ScoreMatrix          matrix   = ScoreMatrix.__new__(ScoreMatrix)
+        cdef int           i
+        cdef char          unknown
+        cdef unsigned char letter
+        cdef size_t        length
+        cdef ScoreMatrix   matrix  = ScoreMatrix.__new__(ScoreMatrix)
 
         matrix._mx = opal.score_matrix.ScoreMatrix.getBlosum50()
-        alphabet = matrix._mx.getAlphabet()
-        matrix._unknown  = alphabet.find(b'*')
+        
+        length = matrix._mx.getAlphabetLength()
+        matrix._shape[0] = matrix._shape[1] = length
 
-        for i in range(UCHAR_MAX):
-            matrix._ahash[i] = matrix._unknown
-        for i in range(matrix._mx.getAlphabetLength()):
-            letter = alphabet[i]
-            matrix._ahash[toupper(letter)] = matrix._ahash[tolower(letter)] = i
-
-        matrix._shape[0] = matrix._shape[1] = matrix._mx.getAlphabetLength()
+        letters = PyBytes_FromStringAndSize(<char*> matrix._mx.getAlphabet(), length)
+        matrix.alphabet = Alphabet(letters.decode('ascii'))
         return matrix
 
-    def __cinit__(self):
-        cdef int i
-        self._unknown = -1
-        for i in range(UCHAR_MAX):
-            self._ahash[i] = self._unknown
-
-    def __init__(self, str alphabet not None, object matrix not None):
+    def __init__(self, object alphabet not None, object matrix not None):
         """Create a new score matrix from the given alphabet and scores.
 
         Arguments:
-            alphabet (`str`): The alphabet of the similarity matrix.
-                If the alphabet contains the ``*`` character, it is
-                treated as a wildcard for any unknown symbol in the
-                query or target sequences.
+            alphabet (`str` or `~pyopal.Alphabet`): The alphabet of the 
+                similarity matrix. 
             matrix (`~numpy.typing.ArrayLike` of `int`): The scoring matrix,
                 as a square matrix indexed by the alphabet characters.
 
@@ -295,12 +312,15 @@ cdef class ScoreMatrix:
         cdef vector[uchar] abcvector = vector[uchar](length, 0)
         cdef vector[int]   scores    = vector[int](length*length, 0)
 
-        if len(set(alphabet)) != len(alphabet):
-            raise ValueError("Alphabet contains duplicate letters")
-        if len(alphabet) != length:
+        if isinstance(alphabet, Alphabet):
+            self.alphabet = alphabet
+        elif isinstance(alphabet, str):
+            self.alphabet = Alphabet(alphabet)
+        else:
+            raise TypeError(f"expected str or Alphabet, found {type(alphabet).__name__!r}")
+
+        if len(self.alphabet) != length:
             raise ValueError("Alphabet must have the same length as matrix")
-        if not alphabet.isupper():
-            raise ValueError("Alphabet must only contain uppercase letters")
         if not all(len(row) == length for row in matrix):
             raise ValueError("`matrix` must be a square matrix")
 
@@ -308,21 +328,14 @@ cdef class ScoreMatrix:
         # if length > 32:
         #     raise ValueError(f"Cannot use alphabet of more than 32 symbols: {alphabet!r}")
 
-        # copy the alphabet and create a lookup-table for encoding sequences
-        self._unknown = alphabet.find("*")
-        for i in range(UCHAR_MAX):
-            self._ahash[i] = self._unknown
-        for i, letter in enumerate(alphabet):
-            j = ord(letter)
-            abcvector[i] = j
-            self._ahash[toupper(j)] = self._ahash[tolower(j)] = i
-
+        # copy the alphabet for Opal
+        for i, letter in enumerate(self.alphabet.letters):
+            abcvector[i] = ord(letter)
         # copy the scores
         for i, row in enumerate(matrix):
             for j, value in enumerate(row):
                 scores[i*length+j] = value
-
-        # record the matrix
+        # create the Opal matrix
         self._mx = opal.score_matrix.ScoreMatrix(abcvector, scores)
 
     def __repr__(self):
@@ -347,14 +360,6 @@ cdef class ScoreMatrix:
         buffer.shape = <Py_ssize_t*> &self._shape
         buffer.suboffsets = NULL
         buffer.strides = NULL
-
-    @property
-    def alphabet(self):
-        """`str`: The score matrix alphabet.
-        """
-        cdef int         length   = self._mx.getAlphabetLength()
-        cdef const char* alphabet = <char*> self._mx.getAlphabet()
-        return PyBytes_FromStringAndSize(alphabet, length).decode('ascii')
 
     @property
     def matrix(self):
@@ -716,12 +721,12 @@ cdef class Database:
             return self._sequences.size()
 
     def __getitem__(self, ssize_t index):
-        cdef ssize_t        i
-        cdef bytearray      decoded
-        cdef digit_t*       encoded
-        cdef size_t         size
-        cdef ssize_t        index_   = index
-        cdef unsigned char* alphabet = self.score_matrix._mx.getAlphabet()
+        cdef ssize_t   i
+        cdef bytearray decoded
+        cdef digit_t*  encoded
+        cdef size_t    size
+        cdef ssize_t   index_   = index
+        cdef str       alphabet = self.score_matrix.alphabet.letters
 
         with self.lock.read:
             size = self._sequences.size()
@@ -734,7 +739,7 @@ cdef class Database:
             encoded = self._sequences[index_].get()
             decoded = bytearray(self._lengths[index_])
             for i in range(self._lengths[index_]):
-                decoded[i] = alphabet[encoded[i]]
+                decoded[i] = ord(alphabet[encoded[i]])
 
         return decoded.decode("ascii")
 
@@ -752,7 +757,7 @@ cdef class Database:
             if index_ < 0 or (<size_t> index_) >= size:
                 raise IndexError(index)
 
-            encode(sequence, self.score_matrix._ahash, &encoded, &length)
+            encode(sequence, self.score_matrix.alphabet._ahash, &encoded, &length)
             self._sequences[index_] = pyshared[digit_t](encoded)
             self._lengths[index_] = length
             self._pointers[index_] = self._sequences[index_].get()
@@ -832,7 +837,7 @@ cdef class Database:
         cdef int      length
         cdef digit_t* encoded
 
-        encode(sequence, self.score_matrix._ahash, &encoded, &length)
+        encode(sequence, self.score_matrix.alphabet._ahash, &encoded, &length)
 
         with self.lock.write:
             self._sequences.push_back(pyshared[digit_t](encoded))
@@ -888,7 +893,7 @@ cdef class Database:
             elif (<size_t> index_) >= size:
                 index_ = size
 
-            encode(sequence, self.score_matrix._ahash, &encoded, &length)
+            encode(sequence, self.score_matrix.alphabet._ahash, &encoded, &length)
             self._sequences.insert(self._sequences.begin() + index_, pyshared[digit_t](encoded))
             self._lengths.insert(self._lengths.begin() + index_, length)
             self._pointers.insert(self._pointers.begin() + index_, self._sequences[index_].get())
@@ -1069,7 +1074,7 @@ cdef class Database:
             raise ValueError(f"Invalid algorithm: {algorithm!r}")
 
         # Prepare query
-        encode(sequence, self.score_matrix._ahash, &query, &length)
+        encode(sequence, self.score_matrix.alphabet._ahash, &query, &length)
         try:
             with self.lock.read:
                 size = self._sequences.size()

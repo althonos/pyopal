@@ -13,7 +13,6 @@ References:
 # --- C imports ----------------------------------------------------------------
 
 from libc.limits cimport UCHAR_MAX
-from libcpp.string cimport string
 from libcpp.vector cimport vector
 from libcpp.memory cimport shared_ptr
 from shared_mutex cimport shared_mutex
@@ -59,11 +58,16 @@ cdef class WriteLock:
 
 # --- Python classes -----------------------------------------------------------
 
+cdef class Alphabet:
+    cdef readonly str letters
+    cdef readonly str unknown
+    cdef char        _unknown
+    cdef char        _ahash[UCHAR_MAX]
+
 cdef class ScoreMatrix:
     cdef opal.score_matrix.ScoreMatrix _mx
-    cdef char                          _ahash[UCHAR_MAX]
-    cdef char                          _unknown
     cdef Py_ssize_t                    _shape[2]
+    cdef readonly Alphabet             alphabet
 
 cdef class ScoreResult:
     cdef ssize_t          _target_index
