@@ -6,6 +6,7 @@ __license__ = "MIT"
 
 from . import lib
 from .lib import (
+    Alphabet,
     Database,
     ScoreMatrix,
     ScoreResult,

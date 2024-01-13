@@ -4,6 +4,7 @@ API Reference
 .. toctree::
    :hidden:
 
+   alphabet <alphabet>
    score_matrix <score_matrix>
    database <database>
    result <result>
@@ -13,6 +14,15 @@ API Reference
 
 
 .. only:: html
+
+    Alphabet
+    --------
+
+    .. autosummary::
+        :nosignatures:
+
+        pyopal.Alphabet
+
 
     ScoreMatrix
     -----------
