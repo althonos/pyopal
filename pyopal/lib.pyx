@@ -21,10 +21,11 @@ from libcpp.memory cimport shared_ptr
 from shared_mutex cimport shared_mutex
 
 from cpython cimport Py_INCREF
-from cpython.buffer cimport PyBUF_FORMAT
+from cpython.buffer cimport PyBUF_FORMAT, PyBUF_READ, PyBUF_WRITE
 from cpython.list cimport PyList_New, PyList_SET_ITEM
 from cpython.bytes cimport PyBytes_AsString, PyBytes_FromStringAndSize
 from cpython.mem cimport PyMem_Calloc, PyMem_Realloc, PyMem_Free
+from cpython.memoryview cimport PyMemoryView_FromMemory
 from cpython.unicode cimport (
     PyUnicode_KIND,
     PyUnicode_DATA,
@@ -169,58 +170,6 @@ cdef class WriteLock:
         self.owner.mutex.unlock()
 
 
-# --- Sequence encoding --------------------------------------------------------
-
-cdef inline void encode_str(str sequence, char* lut, digit_t** encoded, int* length) except *:
-    cdef ssize_t i
-    cdef char    code
-    cdef Py_UCS4 letter
-
-    cdef int     kind = PyUnicode_KIND(sequence)
-    cdef void*   data = PyUnicode_DATA(sequence)
-    cdef ssize_t slen = PyUnicode_GET_LENGTH(sequence)
-
-    length[0] = slen
-    encoded[0] = <digit_t*> PyMem_Calloc(length[0], sizeof(digit_t))
-    if encoded[0] == NULL:
-        raise MemoryError("Failed to allocate sequence data")
-
-    for i in range(length[0]):
-        letter = PyUnicode_READ(kind, data, i)
-        if not isalpha(letter):
-            raise ValueError(f"Character outside ASCII range: {letter}")
-        code = lut[<unsigned char> letter]
-        if code < 0:
-            raise ValueError(f"Non-alphabet character in sequence: {chr(letter)}")
-        encoded[0][i] = code
-
-
-cdef inline void encode_bytes(const unsigned char[:] sequence, char* lut, digit_t** encoded, int* length) except *:
-    cdef ssize_t       i
-    cdef char          code
-    cdef unsigned char letter
-
-    length[0]  = sequence.shape[0]
-    encoded[0] = <digit_t*> PyMem_Calloc(length[0], sizeof(digit_t))
-    if encoded[0] is NULL:
-        raise MemoryError("Failed to allocate sequence data")
-
-    with nogil:
-        for i in range(length[0]):
-            letter = <unsigned char> sequence[i]
-            code = lut[letter]
-            if code < 0:
-                raise ValueError(f"Non-alphabet character in sequence: {chr(letter)}")
-            encoded[0][i] = code
-
-
-cdef inline void encode(object sequence, char* lut, digit_t** encoded, int* length) except *:
-    if isinstance(sequence, str):
-        encode_str(sequence, lut, encoded, length)
-    else:
-        encode_bytes(sequence, lut, encoded, length)
-
-
 # --- Python classes -----------------------------------------------------------
 
 cdef class Alphabet:
@@ -299,7 +248,7 @@ cdef class Alphabet:
 
         Raises:
             `ValueError`: When the sequence contains invalid characters, or
-            unknown sequence characters while the alphabet contains no 
+            unknown sequence characters while the alphabet contains no
             wildcard character.
 
         Example:
@@ -810,6 +759,32 @@ cdef class Database:
     def __reduce__(self):
         return (type(self), ((), self.alphabet), None, iter(self))
 
+    # --- Encoding -------------------------------------------------------------
+
+    cdef seq_t _encode(self, object sequence) except *:
+        cdef size_t   length  = len(sequence)
+        cdef digit_t* encoded = NULL
+
+        if isinstance(sequence, str):
+            sequence = sequence.encode('ascii')
+
+        encoded = <digit_t*> PyMem_Calloc(length, sizeof(digit_t))
+        if encoded is NULL:
+            raise MemoryError("Failed to allocate sequence data")
+
+        try:
+            view = PyMemoryView_FromMemory(<char*> encoded, length, PyBUF_WRITE)
+            self.alphabet.encode_raw(sequence, view)
+        except:
+            PyMem_Free(encoded)
+            raise
+
+        return pyshared(encoded)
+
+    cdef str _decode(self, seq_t encoded, int length) except *:
+        view = PyMemoryView_FromMemory(<char*> encoded.get(), length, PyBUF_READ)
+        return self.alphabet.decode(view)
+
     # --- Sequence interface ---------------------------------------------------
 
     def __len__(self):
@@ -817,12 +792,10 @@ cdef class Database:
             return self._sequences.size()
 
     def __getitem__(self, ssize_t index):
-        cdef ssize_t   i
-        cdef bytearray decoded
-        cdef digit_t*  encoded
-        cdef size_t    size
-        cdef ssize_t   index_   = index
-        cdef str       alphabet = self.alphabet.letters
+        cdef ssize_t i
+        cdef size_t  size
+        cdef object  view
+        cdef ssize_t index_   = index
 
         with self.lock.read:
             size = self._sequences.size()
@@ -832,18 +805,13 @@ cdef class Database:
             if index_ < 0 or (<size_t> index_) >= size:
                 raise IndexError(index)
 
-            encoded = self._sequences[index_].get()
-            decoded = bytearray(self._lengths[index_])
-            for i in range(self._lengths[index_]):
-                decoded[i] = ord(alphabet[encoded[i]])
-
-        return decoded.decode("ascii")
+            return self._decode(self._sequences[index_], self._lengths[index_])
 
     def __setitem__(self, ssize_t index, object sequence):
-        cdef int      length
-        cdef digit_t* encoded
-        cdef size_t   size
-        cdef ssize_t  index_  = index
+        cdef size_t  size
+        cdef ssize_t index_  = index
+        cdef int     length  = len(sequence)
+        cdef seq_t   encoded = self._encode(sequence)
 
         with self.lock.write:
             size = self._sequences.size()
@@ -853,10 +821,9 @@ cdef class Database:
             if index_ < 0 or (<size_t> index_) >= size:
                 raise IndexError(index)
 
-            encode(sequence, self.alphabet._ahash, &encoded, &length)
-            self._sequences[index_] = pyshared[digit_t](encoded)
+            self._sequences[index_] = encoded
             self._lengths[index_] = length
-            self._pointers[index_] = self._sequences[index_].get()
+            self._pointers[index_] = encoded.get()
 
     def __delitem__(self, ssize_t index):
         cdef int     length
@@ -930,15 +897,13 @@ cdef class Database:
             ['ATGC', 'TTCA', 'AAAA']
 
         """
-        cdef int      length
-        cdef digit_t* encoded
-
-        encode(sequence, self.alphabet._ahash, &encoded, &length)
+        cdef int   length  = len(sequence)
+        cdef seq_t encoded = self._encode(sequence)
 
         with self.lock.write:
-            self._sequences.push_back(pyshared[digit_t](encoded))
+            self._sequences.push_back(encoded)
             self._lengths.push_back(length)
-            self._pointers.push_back(self._sequences[self._pointers.size()].get())
+            self._pointers.push_back(encoded.get())
 
     cpdef void reverse(self) except *:
         """Reverse the database, in place.
@@ -973,10 +938,10 @@ cdef class Database:
                 ['TTTT', 'ATGC', 'TTGC', 'CTGC', 'AAAA']
 
         """
-        cdef int      length
-        cdef digit_t* encoded
-        cdef size_t   size
-        cdef ssize_t  index_  = index
+        cdef size_t  size
+        cdef int     length  = len(sequence)
+        cdef ssize_t index_  = index
+        cdef seq_t   encoded = self._encode(sequence)
 
         with self.lock.write:
             size = self._sequences.size()
@@ -989,10 +954,9 @@ cdef class Database:
             elif (<size_t> index_) >= size:
                 index_ = size
 
-            encode(sequence, self.alphabet._ahash, &encoded, &length)
-            self._sequences.insert(self._sequences.begin() + index_, pyshared[digit_t](encoded))
+            self._sequences.insert(self._sequences.begin() + index_, encoded)
             self._lengths.insert(self._lengths.begin() + index_, length)
-            self._pointers.insert(self._pointers.begin() + index_, self._sequences[index_].get())
+            self._pointers.insert(self._pointers.begin() + index_, encoded.get())
 
 
     # --- Subset ---------------------------------------------------------------
@@ -1141,19 +1105,19 @@ cdef class Database:
         assert self.alphabet is not None
         assert self._search is not NULL
 
-        cdef int                          _mode
-        cdef int                          _overflow
-        cdef int                          _algo
-        cdef size_t                       i
-        cdef int                          retcode
-        cdef int                          length
-        cdef ScoreResult                  result
-        cdef FullResult                   full_result
-        cdef type                         result_type
-        cdef list                         results
-        cdef vector[OpalSearchResult*]    results_raw
-        cdef size_t                       size
-        cdef digit_t*                     query       = NULL
+        cdef int                       _mode
+        cdef int                       _overflow
+        cdef int                       _algo
+        cdef size_t                    i
+        cdef int                       retcode
+        cdef ScoreResult               result
+        cdef FullResult                full_result
+        cdef type                      result_type
+        cdef list                      results
+        cdef vector[OpalSearchResult*] results_raw
+        cdef size_t                    size
+        cdef seq_t                     query
+        cdef int                       length      = len(sequence)
 
         # validate parameters
         if mode in _OPAL_SEARCH_MODES:
@@ -1176,43 +1140,39 @@ cdef class Database:
         if score_matrix.alphabet != self.alphabet:
             raise ValueError("database and score matrix have different alphabets")
 
-        # Prepare query
-        encode(sequence, self.alphabet._ahash, &query, &length)
-        try:
-            with self.lock.read:
-                size = self._sequences.size()
+        # encode query
+        query = self._encode(sequence)
 
-                # Prepare list of results
-                res_array = PyMem_Calloc(size, sizeof(OpalSearchResult*))
-                results_raw.reserve(size)
-                results = PyList_New(size)
-                for i in range(size):
-                    result = result_type.__new__(result_type)
-                    result._target_index = i
-                    Py_INCREF(result)
-                    PyList_SET_ITEM(results, i, result)
-                    results_raw.push_back(&result._result)
-
-                # Run search pipeline in nogil mode
-                with nogil:
-                    retcode = self._search(
-                        query,
-                        length,
-                        self._pointers.data(),
-                        self._pointers.size(),
-                        self._lengths.data(),
-                        gap_open,
-                        gap_extend,
-                        score_matrix._mx.getMatrix(),
-                        score_matrix._mx.getAlphabetLength(),
-                        results_raw.data(),
-                        _mode,
-                        _algo,
-                        _overflow,
-                    )
-        finally:
-            # free memory used for the query
-            PyMem_Free(query)
+        # search database
+        with self.lock.read:
+            size = self._sequences.size()
+            # Prepare list of results
+            res_array = PyMem_Calloc(size, sizeof(OpalSearchResult*))
+            results_raw.reserve(size)
+            results = PyList_New(size)
+            for i in range(size):
+                result = result_type.__new__(result_type)
+                result._target_index = i
+                Py_INCREF(result)
+                PyList_SET_ITEM(results, i, result)
+                results_raw.push_back(&result._result)
+            # Run search pipeline in nogil mode
+            with nogil:
+                retcode = self._search(
+                    query.get(),
+                    length,
+                    self._pointers.data(),
+                    self._pointers.size(),
+                    self._lengths.data(),
+                    gap_open,
+                    gap_extend,
+                    score_matrix._mx.getMatrix(),
+                    score_matrix._mx.getAlphabetLength(),
+                    results_raw.data(),
+                    _mode,
+                    _algo,
+                    _overflow,
+                )
 
         # record query and target lengths if in full mode so that
         # the alignment coverage can be computed later

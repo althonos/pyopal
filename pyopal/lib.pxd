@@ -13,6 +13,7 @@ References:
 # --- C imports ----------------------------------------------------------------
 
 from libc.limits cimport UCHAR_MAX
+from libcpp cimport bool, nullptr
 from libcpp.vector cimport vector
 from libcpp.memory cimport shared_ptr
 from shared_mutex cimport shared_mutex
@@ -97,6 +98,9 @@ cdef class Database:
     cdef          vector[digit_t*] _pointers
     cdef          vector[int]      _lengths
     cdef          searchfn_t       _search
+
+    cdef seq_t _encode(self, object sequence) except *
+    cdef str _decode(self, seq_t encoded, int length) except *
 
     cpdef void clear(self) except *
     cpdef void extend(self, object sequences) except *
