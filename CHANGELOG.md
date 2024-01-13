@@ -6,7 +6,17 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## [Unreleased]
-[Unreleased]: https://github.com/althonos/pyopal/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/althonos/pyopal/compare/v0.5.0-a2...HEAD
+
+
+## [v0.5.0-a2] - 2024-01-12
+[v0.5.0-a2]: https://github.com/althonos/pyopal/compare/v0.5.0-a1...v0.5.0-a2
+
+### Added
+- `pyopal.Alphabet` class for handling sequence encoding outside of `ScoreMatrix`.
+
+### Changed
+- Make internal extension public as `pyopal.lib` submodule.
 
 
 ## [v0.5.0-a1] - 2024-01-12
