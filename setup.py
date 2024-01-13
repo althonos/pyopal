@@ -576,9 +576,8 @@ setuptools.setup(
             "pyopal.platform.neon",
             language="c++",
             simd="NEON",
-            define_macros=[
-                ("__ARM_NEON", 1),
-            ],
+            define_macros=[("__ARM_NEON", 1)],
+            include_dirs=["pyopal"],
             templates={
                 os.path.join("pyopal", "platform", "neon.pxd"): os.path.join("pyopal", "platform", "pxd.in"),
                 os.path.join("pyopal", "platform", "neon.pyx"): os.path.join("pyopal", "platform", "pyx.in"),
@@ -587,18 +586,14 @@ setuptools.setup(
                 os.path.join("vendor", "opal", "src", "opal.cpp"),
                 os.path.join("pyopal", "platform", "neon.pyx"),
             ],
-            include_dirs=[
-                os.path.join("vendor", "opal", "src"),
-                "pyopal",
-            ],
+            
         ),
         ExtensionTemplate(
             "pyopal.platform.sse2",
             language="c++",
             simd="SSE2",
-            define_macros=[
-                ("__SSE2__", 1),
-            ],
+            define_macros=[("__SSE2__", 1)],
+            include_dirs=["pyopal"],
             templates={
                 os.path.join("pyopal", "platform", "sse2.pxd"): os.path.join("pyopal", "platform", "pxd.in"),
                 os.path.join("pyopal", "platform", "sse2.pyx"): os.path.join("pyopal", "platform", "pyx.in"),
@@ -607,18 +602,13 @@ setuptools.setup(
                 os.path.join("vendor", "opal", "src", "opal.cpp"),
                 os.path.join("pyopal", "platform", "sse2.pyx"),
             ],
-            include_dirs=[
-                os.path.join("vendor", "opal", "src"),
-                "pyopal",
-            ],
         ),
         ExtensionTemplate(
             "pyopal.platform.sse4",
             language="c++",
             simd="SSE4",
-            define_macros=[
-                ("__SSE4_1__", 1),
-            ],
+            define_macros=[("__SSE4_1__", 1)],
+            include_dirs=["pyopal"],
             templates={
                 os.path.join("pyopal", "platform", "sse4.pxd"): os.path.join("pyopal", "platform", "pxd.in"),
                 os.path.join("pyopal", "platform", "sse4.pyx"): os.path.join("pyopal", "platform", "pyx.in"),
@@ -627,18 +617,13 @@ setuptools.setup(
                 os.path.join("vendor", "opal", "src", "opal.cpp"),
                 os.path.join("pyopal", "platform", "sse4.pyx"),
             ],
-            include_dirs=[
-                os.path.join("vendor", "opal", "src"),
-                "pyopal",
-            ],
         ),
         ExtensionTemplate(
             "pyopal.platform.avx2",
             language="c++",
             simd="AVX2",
-            define_macros=[
-                ("__AVX2__", 1),
-            ],
+            include_dirs=["pyopal"],
+            define_macros=[("__AVX2__", 1)],
             templates={
                 os.path.join("pyopal", "platform", "avx2.pxd"): os.path.join("pyopal", "platform", "pxd.in"),
                 os.path.join("pyopal", "platform", "avx2.pyx"): os.path.join("pyopal", "platform", "pyx.in"),
@@ -647,22 +632,12 @@ setuptools.setup(
                 os.path.join("vendor", "opal", "src", "opal.cpp"),
                 os.path.join("pyopal", "platform", "avx2.pyx"),
             ],
-            include_dirs=[
-                os.path.join("vendor", "opal", "src"),
-                "pyopal",
-            ],
         ),
         Extension(
             "pyopal.lib",
             language="c++",
-            sources=[
-                os.path.join("pyopal", "lib.pyx"),
-            ],
-            extra_compile_args=[],
-            include_dirs=[
-                os.path.join("vendor", "opal", "src"),
-                "pyopal",
-            ],
+            sources=[os.path.join("pyopal", "lib.pyx")],
+            include_dirs=["pyopal"],
         ),
     ],
     cmdclass={

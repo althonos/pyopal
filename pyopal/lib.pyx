@@ -58,8 +58,8 @@ cdef extern from "<algorithm>" namespace "std" nogil:
 cdef extern from * nogil:
     """
     template<typename T>
-    shared_ptr<T> pyshared(T* obj) {
-        return shared_ptr<T>(obj, PyMem_Free);
+    std::shared_ptr<T> pyshared(T* obj) {
+        return std::shared_ptr<T>(obj, PyMem_Free);
     }
     """
     shared_ptr[T] pyshared[T](T* obj)

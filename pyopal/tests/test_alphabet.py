@@ -4,7 +4,7 @@ import unittest
 import pyopal
 
 
-class TestDatabase(unittest.TestCase):
+class TestAlphabet(unittest.TestCase):
 
     def test_len(self):
         alphabet = pyopal.Alphabet()

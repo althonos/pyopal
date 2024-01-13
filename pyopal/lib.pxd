@@ -19,7 +19,6 @@ from libcpp.memory cimport shared_ptr
 
 from . cimport opal
 from .opal cimport OpalSearchResult
-from .opal.score_matrix cimport ScoreMatrix as _ScoreMatrix
 from .shared_mutex cimport shared_mutex
 
 # --- Type definitions ---------------------------------------------------------
@@ -60,11 +59,11 @@ cdef class WriteLock:
 # --- Python classes -----------------------------------------------------------
 
 cdef class Alphabet:
-    cdef readonly str letters
-    cdef readonly int length
-    cdef char        _unknown
-    cdef char        _letters[MAX_ALPHABET_SIZE]
-    cdef char        _ahash[UCHAR_MAX]
+    cdef readonly str   letters
+    cdef readonly int   length
+    cdef char          _unknown
+    cdef unsigned char _letters[MAX_ALPHABET_SIZE]
+    cdef char          _ahash[UCHAR_MAX]
 
     cdef void encode_raw(self, const unsigned char[:] sequence, digit_t[:] encoded)
     cdef void decode_raw(self, const digit_t[:] encoded, unsigned char[:] sequence)
