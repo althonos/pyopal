@@ -19,6 +19,7 @@ from libcpp cimport bool
 from libcpp.string cimport string
 from libcpp.vector cimport vector
 from libcpp.memory cimport shared_ptr
+from shared_mutex cimport shared_mutex
 
 from cpython cimport Py_INCREF
 from cpython.buffer cimport PyBUF_FORMAT
@@ -53,14 +54,6 @@ cdef extern from "<cctype>" namespace "std" nogil:
 cdef extern from "<algorithm>" namespace "std" nogil:
     cdef void reverse[T](T, T)
     cdef int  count[T, V](T, T, V)
-
-cdef extern from "<shared_mutex>" namespace "std" nogil:
-    cdef cppclass shared_mutex:
-        shared_mutex()
-        void lock()
-        void unlock()
-        void lock_shared()
-        void unlock_shared()
 
 cdef extern from * nogil:
     """
@@ -141,34 +134,10 @@ if TARGET_CPU == "aarch64":
 if TARGET_CPU == "x86_64":
     _SSE2_RUNTIME_SUPPORT = SSE2_BUILD_SUPPORT
 
-# --- Type definitions ---------------------------------------------------------
-
-ctypedef unsigned char       digit_t
-ctypedef shared_ptr[digit_t] seq_t
-ctypedef OpalSearchResult*   OpalSearchResult_ptr
-
-ctypedef int (*searchfn_t)(
-    unsigned char*,
-    int,
-    unsigned char**,
-    int,
-    int*,
-    int,
-    int,
-    int*,
-    int,
-    OpalSearchResult**,
-    const int,
-    int,
-    int,
-) noexcept nogil
 
 # --- Exclusive read/write lock ------------------------------------------------
 
 cdef class SharedMutex:
-    cdef          shared_mutex mutex
-    cdef readonly ReadLock     read
-    cdef readonly WriteLock    write
 
     def __cinit__(self):
         self.read = ReadLock(self)
@@ -176,7 +145,6 @@ cdef class SharedMutex:
 
 
 cdef class ReadLock:
-    cdef SharedMutex owner
 
     def __cinit__(self, SharedMutex owner):
         self.owner = owner
@@ -189,7 +157,6 @@ cdef class ReadLock:
 
 
 cdef class WriteLock:
-    cdef SharedMutex owner
 
     def __cinit__(self, SharedMutex owner):
         self.owner = owner
@@ -258,10 +225,6 @@ cdef inline void encode(object sequence, char* lut, digit_t** encoded, int* leng
 cdef class ScoreMatrix:
     """A score matrix for comparing character matches in sequences.
     """
-    cdef opal.score_matrix.ScoreMatrix _mx
-    cdef char                          _ahash[UCHAR_MAX]
-    cdef char                          _unknown
-    cdef Py_ssize_t                    _shape[2]
 
     @classmethod
     def aa(cls):
@@ -412,9 +375,6 @@ cdef class ScoreResult:
     """The results of a search in ``score`` mode.
     """
 
-    cdef ssize_t          _target_index
-    cdef OpalSearchResult _result
-
     def __cinit__(self):
         self._target_index = -1
         self._result.scoreSet = 0
@@ -495,9 +455,6 @@ cdef class EndResult(ScoreResult):
 cdef class FullResult(EndResult):
     """The results of a search in ``full`` mode.
     """
-
-    cdef int _query_length
-    cdef int _target_length
 
     def __cinit__(self):
         self._query_length = -1
@@ -720,13 +677,6 @@ cdef class Database:
     `ScoreMatrix` given on instantiation.
 
     """
-
-    cdef readonly SharedMutex      lock
-    cdef readonly ScoreMatrix      score_matrix
-    cdef          vector[seq_t]    _sequences
-    cdef          vector[digit_t*] _pointers
-    cdef          vector[int]      _lengths
-    cdef          searchfn_t       _search
 
     # --- Magic methods --------------------------------------------------------
 
@@ -1099,7 +1049,7 @@ cdef class Database:
         cdef FullResult                   full_result
         cdef type                         result_type
         cdef list                         results
-        cdef vector[OpalSearchResult_ptr] results_raw
+        cdef vector[OpalSearchResult*]    results_raw
         cdef size_t                       size
         cdef digit_t*                     query       = NULL
 
