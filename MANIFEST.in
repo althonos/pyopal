@@ -3,7 +3,6 @@ include CHANGELOG.md
 include CONTRIBUTING.md
 include README.md
 
-recursive-include include             *.pxd
 recursive-include patches             *.patch
 recursive-include pyopal/tests        *.py requirements.txt
 recursive-include pyopal/platform     *.in

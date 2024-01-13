@@ -1,7 +1,7 @@
 # distutils: language = c++
 # cython: language_level=3, linetrace=True, embedsignature=True, binding=True
 
-cimport opal
+from ..opal cimport OpalSearchResult
 
 cdef int opalSearchDatabase${SIMD}(
     unsigned char query[], 
@@ -13,7 +13,7 @@ cdef int opalSearchDatabase${SIMD}(
     int gapExt, 
     int* scoreMatrix,
     int alphabetLength, 
-    opal.OpalSearchResult* results[],
+    OpalSearchResult* results[],
     const int searchType, 
     int mode, 
     int overflowMethod

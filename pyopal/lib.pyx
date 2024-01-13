@@ -18,7 +18,6 @@ from libc.limits cimport UCHAR_MAX
 from libcpp cimport bool
 from libcpp.vector cimport vector
 from libcpp.memory cimport shared_ptr
-from shared_mutex cimport shared_mutex
 
 from cpython cimport Py_INCREF
 from cpython.buffer cimport PyBUF_FORMAT, PyBUF_READ, PyBUF_WRITE
@@ -34,9 +33,10 @@ from cpython.unicode cimport (
     PyUnicode_1BYTE_KIND
 )
 
-cimport opal
-cimport opal.score_matrix
-from opal cimport OpalSearchResult
+from . cimport opal
+from .opal cimport OpalSearchResult
+from .opal.score_matrix cimport ScoreMatrix as _ScoreMatrix
+from .shared_mutex cimport shared_mutex
 
 if NEON_BUILD_SUPPORT:
     from pyopal.platform.neon cimport opalSearchDatabaseNEON
@@ -303,7 +303,7 @@ cdef class ScoreMatrix:
         cdef size_t        length
         cdef ScoreMatrix   matrix  = ScoreMatrix.__new__(ScoreMatrix)
 
-        matrix._mx = opal.score_matrix.ScoreMatrix.getBlosum50()
+        matrix._mx = _ScoreMatrix.getBlosum50()
 
         length = matrix._mx.getAlphabetLength()
         matrix._shape[0] = matrix._shape[1] = length
@@ -374,7 +374,7 @@ cdef class ScoreMatrix:
             for j, value in enumerate(row):
                 scores[i*length+j] = value
         # create the Opal matrix
-        self._mx = opal.score_matrix.ScoreMatrix(abcvector, scores)
+        self._mx = _ScoreMatrix(abcvector, scores)
 
     def __repr__(self):
         cdef str ty = type(self).__name__

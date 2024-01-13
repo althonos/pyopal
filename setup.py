@@ -543,7 +543,6 @@ setuptools.setup(
             include_dirs=[
                 os.path.join("vendor", "opal", "src"),
                 "pyopal",
-                "include",
             ],
         ),
         ExtensionTemplate(
@@ -564,7 +563,6 @@ setuptools.setup(
             include_dirs=[
                 os.path.join("vendor", "opal", "src"),
                 "pyopal",
-                "include",
             ],
         ),
         ExtensionTemplate(
@@ -585,7 +583,6 @@ setuptools.setup(
             include_dirs=[
                 os.path.join("vendor", "opal", "src"),
                 "pyopal",
-                "include",
             ],
         ),
         ExtensionTemplate(
@@ -606,7 +603,6 @@ setuptools.setup(
             include_dirs=[
                 os.path.join("vendor", "opal", "src"),
                 "pyopal",
-                "include",
             ],
         ),
         Extension(
@@ -620,7 +616,6 @@ setuptools.setup(
             include_dirs=[
                 os.path.join("vendor", "opal", "src"),
                 "pyopal",
-                "include",
             ],
         ),
     ],

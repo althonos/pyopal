@@ -16,11 +16,11 @@ from libc.limits cimport UCHAR_MAX
 from libcpp cimport bool, nullptr
 from libcpp.vector cimport vector
 from libcpp.memory cimport shared_ptr
-from shared_mutex cimport shared_mutex
 
-cimport opal
-cimport opal.score_matrix
-from opal cimport OpalSearchResult
+from . cimport opal
+from .opal cimport OpalSearchResult
+from .opal.score_matrix cimport ScoreMatrix as _ScoreMatrix
+from .shared_mutex cimport shared_mutex
 
 # --- Type definitions ---------------------------------------------------------
 
@@ -72,9 +72,9 @@ cdef class Alphabet:
     cpdef str decode(self, object encoded)
 
 cdef class ScoreMatrix:
-    cdef opal.score_matrix.ScoreMatrix _mx
-    cdef Py_ssize_t                    _shape[2]
-    cdef readonly Alphabet             alphabet
+    cdef _ScoreMatrix      _mx
+    cdef Py_ssize_t        _shape[2]
+    cdef readonly Alphabet alphabet
 
 cdef class ScoreResult:
     cdef ssize_t          _target_index

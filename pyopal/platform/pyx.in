@@ -1,7 +1,7 @@
 # distutils: language = c++
 # cython: language_level=3, linetrace=True, embedsignature=True, binding=True
 
-cimport opal
+from .. cimport opal
 
 include "../_version.py"
 include "../_patch.pxi"
