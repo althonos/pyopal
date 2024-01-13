@@ -64,6 +64,12 @@ cdef class Alphabet:
     cdef char        _unknown
     cdef char        _ahash[UCHAR_MAX]
 
+    cdef void encode_raw(self, const unsigned char[:] sequence, digit_t[:] encoded)
+    cdef void decode_raw(self, const digit_t[:] encoded, unsigned char[:] sequence)
+
+    cpdef bytes encode(self, object sequence)
+    cpdef str decode(self, object encoded)
+
 cdef class ScoreMatrix:
     cdef opal.score_matrix.ScoreMatrix _mx
     cdef Py_ssize_t                    _shape[2]

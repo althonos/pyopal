@@ -30,6 +30,7 @@ from cpython.unicode cimport (
     PyUnicode_DATA,
     PyUnicode_READ,
     PyUnicode_GET_LENGTH,
+    PyUnicode_1BYTE_KIND
 )
 
 cimport opal
@@ -231,7 +232,7 @@ cdef class Alphabet:
             raise ValueError("duplicate symbols in alphabet letters", letters)
         if set(letters) & set(ascii_lowercase):
             raise ValueError("alphabet must only contain uppercase characters")
-        
+
         self.letters = letters
         self._unknown = letters.find('*')
 
@@ -265,9 +266,47 @@ cdef class Alphabet:
         else:
             return False
 
+    cdef void encode_raw(self, const unsigned char[:] sequence, digit_t[:] encoded):
+        cdef ssize_t       i
+        cdef char          code
+        cdef unsigned char letter
+
+        for i in range(sequence.shape[0]):
+            letter = sequence[i]
+            if not isalpha(letter):
+                raise ValueError(f"character outside ASCII range: {letter}")
+            code = self._ahash[<unsigned char> letter]
+            if code < 0:
+                raise ValueError(f"non-alphabet character in sequence: {chr(letter)}")
+            encoded[i] = code
+
+    cdef void decode_raw(self, const digit_t[:] encoded, unsigned char[:] sequence):
+        for i in range(encoded.shape[0]):
+            sequence[i] = ord(self.letters[encoded[i]])
+
+    # ---
+
+    cpdef bytes encode(self, object sequence):
+        cdef bytearray encoded = bytearray(len(sequence))
+        if isinstance(sequence, str):
+            sequence = sequence.encode('ascii')
+        self.encode_raw(sequence, encoded)
+        return bytes(encoded)
+
+    cpdef str decode(self, object encoded):
+        cdef bytearray decoded = bytearray(len(encoded))
+        self.decode_raw(encoded, decoded)
+        return decoded.decode('ascii')
+
 
 cdef class ScoreMatrix:
     """A score matrix for comparing character matches in sequences.
+
+    Attributes:
+        alphabet (`~pyopal.Alphabet`): The alphabet object storing the
+            letters corresponding to column and row indices of the
+            scoring matrix.
+
     """
 
     @classmethod
@@ -281,7 +320,7 @@ cdef class ScoreMatrix:
         cdef ScoreMatrix   matrix  = ScoreMatrix.__new__(ScoreMatrix)
 
         matrix._mx = opal.score_matrix.ScoreMatrix.getBlosum50()
-        
+
         length = matrix._mx.getAlphabetLength()
         matrix._shape[0] = matrix._shape[1] = length
 
@@ -293,8 +332,8 @@ cdef class ScoreMatrix:
         """Create a new score matrix from the given alphabet and scores.
 
         Arguments:
-            alphabet (`str` or `~pyopal.Alphabet`): The alphabet of the 
-                similarity matrix. 
+            alphabet (`str` or `~pyopal.Alphabet`): The alphabet of the
+                similarity matrix.
             matrix (`~numpy.typing.ArrayLike` of `int`): The scoring matrix,
                 as a square matrix indexed by the alphabet characters.
 
@@ -693,7 +732,7 @@ cdef class Database:
 
     Like many biological sequence analysis tools, Opal encodes sequences
     with an alphabet for faster indexing of matrices. Sequences inserted in
-    a database are stored in encoded format using the alphabet given on 
+    a database are stored in encoded format using the alphabet given on
     instantiation.
 
     Attributes:
