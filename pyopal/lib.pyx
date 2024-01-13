@@ -229,14 +229,14 @@ cdef class Alphabet:
 
     def __init__(self, str letters = "ARNDCQEGHILKMFPSTWYVBZX*"):
         if len(letters) != len(set(letters)):
-            raise ValueError("duplicate symbols in alphabet letters", letters)
-        if set(letters) & set(ascii_lowercase):
-            raise ValueError("alphabet must only contain uppercase characters")
+            raise ValueError("duplicate symbols in alphabet letters")
+        if any(x != '*' and not x.isupper() for x in letters):
+            raise ValueError("alphabet must only contain uppercase characters or wildcard")
 
         self.letters = letters
         self._unknown = letters.find('*')
 
-        memset(&self._ahash[0], -1, UCHAR_MAX * sizeof(char))
+        memset(&self._ahash[0], self._unknown, UCHAR_MAX * sizeof(char))
         for i, x in enumerate(letters.encode('ascii')):
             self._ahash[x] = i
 
@@ -274,19 +274,40 @@ cdef class Alphabet:
         for i in range(sequence.shape[0]):
             letter = sequence[i]
             if not isalpha(letter):
-                raise ValueError(f"character outside ASCII range: {letter}")
+                raise ValueError(f"character outside ASCII range: {letter!r}")
             code = self._ahash[<unsigned char> letter]
             if code < 0:
-                raise ValueError(f"non-alphabet character in sequence: {chr(letter)}")
+                raise ValueError(f"non-alphabet character in sequence: {chr(letter)!r}")
             encoded[i] = code
 
     cdef void decode_raw(self, const digit_t[:] encoded, unsigned char[:] sequence):
+        cdef digit_t code
+        cdef size_t  length = len(self.letters)
         for i in range(encoded.shape[0]):
-            sequence[i] = ord(self.letters[encoded[i]])
+            code = encoded[i]
+            if code >= length:
+                raise ValueError(f"invalid index in encoded sequence: {code!r}")
+            sequence[i] = ord(self.letters[code])
 
     # ---
 
     cpdef bytes encode(self, object sequence):
+        r"""Encode a sequence to an ordinal-encoded sequence using the alphabet.
+
+        Arguments:
+            sequence (`str` or byte-like object): The sequence to encode.
+
+        Raises:
+            `ValueError`: When the sequence contains invalid characters, or
+            unknown sequence characters while the alphabet contains no 
+            wildcard character.
+
+        Example:
+            >>> alphabet = Alphabet("ACGT")
+            >>> alphabet.encode("GATACA")
+            b'\x02\x00\x03\x00\x01\x00'
+
+        """
         cdef bytearray encoded = bytearray(len(sequence))
         if isinstance(sequence, str):
             sequence = sequence.encode('ascii')
@@ -294,6 +315,20 @@ cdef class Alphabet:
         return bytes(encoded)
 
     cpdef str decode(self, object encoded):
+        r"""Decode an ordinal-encoded sequence using the alphabet.
+
+        Arguments:
+            sequence (byte-like object): The sequence to decode.
+
+        Raises:
+            `ValueError`: When the sequence contains invalid indices.
+
+        Example:
+            >>> alphabet = Alphabet("ACGT")
+            >>> alphabet.decode(bytearray([2, 0, 3, 0, 1, 0]))
+            'GATACA'
+
+        """
         cdef bytearray decoded = bytearray(len(encoded))
         self.decode_raw(encoded, decoded)
         return decoded.decode('ascii')
