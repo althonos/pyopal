@@ -1,5 +1,6 @@
 import pickle
 import unittest
+import sys
 
 import pyopal
 
@@ -22,6 +23,7 @@ class TestScoreMatrix(unittest.TestCase):
         with self.assertRaises(ValueError):
             aa = pyopal.ScoreMatrix.aa("nonsensical")
 
+    @unittest.skipUnless(sys.implementation.name == "cpython", "memoryview not supported")
     def test_memoryview(self):
         aa = pyopal.ScoreMatrix.aa("BLOSUM50")
         mem = memoryview(aa)
