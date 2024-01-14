@@ -21,6 +21,14 @@ from . cimport opal
 from .opal cimport OpalSearchResult
 from .shared_mutex cimport shared_mutex
 
+# --- Constants ----------------------------------------------------------------
+
+cdef extern from * nogil:
+    """
+    const size_t MAX_ALPHABET_SIZE = 32;
+    """
+    const size_t MAX_ALPHABET_SIZE
+
 # --- Type definitions ---------------------------------------------------------
 
 ctypedef unsigned char       digit_t

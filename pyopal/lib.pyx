@@ -182,7 +182,7 @@ cdef class Alphabet:
         if any(x != '*' and not x.isupper() for x in letters):
             raise ValueError("alphabet must only contain uppercase characters or wildcard")
         # NOTE(@althonos): may be required implicitly by SIMD implementations
-        if len(letters) > MAX_ALPHABET_SIZE:
+        if <size_t> len(letters) > MAX_ALPHABET_SIZE:
             raise ValueError(f"Cannot use alphabet of more than 32 symbols")
 
         self.letters = letters
