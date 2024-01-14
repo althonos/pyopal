@@ -1135,7 +1135,7 @@ cdef class Database:
 
         # search database
         with self.lock.read:
-            size = self._sequences.size()
+            size = self._pointers.size()
             # Prepare list of results
             res_array = PyMem_Calloc(size, sizeof(OpalSearchResult*))
             results_raw.reserve(size)
