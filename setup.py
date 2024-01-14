@@ -415,10 +415,6 @@ class build_ext(_build_ext):
         if self.compiler.compiler_type == "msvc":
             ext.define_macros.append(("WIN32", 1))
 
-        # check if `PyInterpreterState_GetID` is defined
-        if self._check_getid():
-            ext.define_macros.append(("HAS_PYINTERPRETERSTATE_GETID", 1))
-
         # build the rest of the extension as normal
         ext._needs_stub = False
 
@@ -489,6 +485,10 @@ class build_ext(_build_ext):
         else:
             cython_args["compiler_directives"]["boundscheck"] = False
             cython_args["compiler_directives"]["wraparound"] = False
+
+        # check if `PyInterpreterState_GetID` is defined
+        if self._check_getid():
+            self.compiler.define_macro("HAS_PYINTERPRETERSTATE_GETID", 1)
 
         # check if we can build platform-specific code
         if self.target_cpu == "x86" or self.target_cpu == "x86_64":
