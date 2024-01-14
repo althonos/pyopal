@@ -382,7 +382,7 @@ cdef class ScoreMatrix:
         buffer.len = self._shape[0] * self._shape[1] * sizeof(int)
         buffer.ndim = 2
         buffer.obj = self
-        buffer.readonly = 0
+        buffer.readonly = 1
         buffer.shape = <Py_ssize_t*> &self._shape
         buffer.suboffsets = NULL
         buffer.strides = NULL
