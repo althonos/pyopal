@@ -603,7 +603,7 @@ cdef class FullResult(EndResult):
             return None
 
         count = 0
-        current = self._result.alignment[0]
+        current = self._result.alignment[0] % 3
         for i in range(self._result.alignmentLength):
             symbol = self._result.alignment[i] % 3
             if symbol == current:
