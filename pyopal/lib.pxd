@@ -107,8 +107,8 @@ cdef class Database:
     cdef          vector[int]      _lengths
     cdef          searchfn_t       _search
 
-    cdef seq_t _encode(self, object sequence) except *
-    cdef str _decode(self, seq_t encoded, int length) except *
+    cdef digit_t* _encode(self, object sequence) except *
+    cdef str _decode(self, digit_t* encoded, int length) except *
 
     cpdef void clear(self) except *
     cpdef void extend(self, object sequences) except *
