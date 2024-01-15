@@ -19,6 +19,7 @@ from libcpp cimport bool
 from libcpp.vector cimport vector
 from libcpp.memory cimport shared_ptr
 
+from cython.operator import dereference
 from cpython cimport Py_INCREF
 from cpython.buffer cimport PyBUF_FORMAT, PyBUF_READ, PyBUF_WRITE
 from cpython.list cimport PyList_New, PyList_SET_ITEM
@@ -719,9 +720,10 @@ cdef class Database:
 
     def __cinit__(self):
         self.lock       = SharedMutex()
-        self._sequences = vector[seq_t]()
-        self._lengths   = vector[int]()
         self._search    = NULL
+        self._sequences.clear()
+        self._lengths.clear()
+        self._pointers.clear()
 
     def __init__(self, object sequences=(), Alphabet alphabet = None):
         # record the alphabet
@@ -779,7 +781,7 @@ cdef class Database:
 
     def __len__(self):
         with self.lock.read:
-            return self._sequences.size()
+            return self._pointers.size()
 
     def __getitem__(self, ssize_t index):
         cdef ssize_t i
@@ -788,14 +790,16 @@ cdef class Database:
         cdef ssize_t index_   = index
 
         with self.lock.read:
-            size = self._sequences.size()
+            size = self._pointers.size()
 
             if index_ < 0:
                 index_ += size
             if index_ < 0 or (<size_t> index_) >= size:
                 raise IndexError(index)
 
-            return self._decode(self._sequences[index_].get(), self._lengths[index_])
+            assert index_ < self._pointers.size()
+            assert self._pointers[index_] != NULL
+            return self._decode(self._pointers[index_], self._lengths[index_])
 
     def __setitem__(self, ssize_t index, object sequence):
         cdef size_t  size
@@ -804,7 +808,7 @@ cdef class Database:
         cdef seq_t   encoded = pyshared(self._encode(sequence))
 
         with self.lock.write:
-            size = self._sequences.size()
+            size = self._pointers.size()
 
             if index_ < 0:
                 index_ += size
@@ -822,7 +826,7 @@ cdef class Database:
         cdef ssize_t index_  = index
 
         with self.lock.write:
-            size = self._sequences.size()
+            size = self._pointers.size()
 
             if index_ < 0:
                 index_ += size
@@ -836,8 +840,6 @@ cdef class Database:
     cpdef void clear(self) except *:
         """Remove all sequences from the database.
         """
-        cdef size_t i
-
         with self.lock.write:
             self._sequences.clear()
             self._lengths.clear()
@@ -858,7 +860,7 @@ cdef class Database:
 
         # attempt to reserve space in advance for the new sequences
         with self.lock.write:
-            size = self._sequences.size()
+            size = self._pointers.size()
             if hint > 0:
                 self._sequences.reserve(hint + size)
                 self._lengths.reserve(hint + size)
@@ -934,7 +936,7 @@ cdef class Database:
         cdef seq_t   encoded = pyshared(self._encode(sequence))
 
         with self.lock.write:
-            size = self._sequences.size()
+            size = self._pointers.size()
 
             if index_ < 0:
                 index_ += size
@@ -985,7 +987,7 @@ cdef class Database:
             if b:
                 subdb._sequences.push_back(self._sequences[i])
                 subdb._lengths.push_back(self._lengths[i])
-                subdb._pointers.push_back(subdb._sequences[i].get())
+                subdb._pointers.push_back(self._sequences[i].get())
 
         return subdb
 
@@ -1024,7 +1026,7 @@ cdef class Database:
                 raise IndexError(index)
             subdb._sequences.push_back(self._sequences[index])
             subdb._lengths.push_back(self._lengths[index])
-            subdb._pointers.push_back(subdb._sequences[index].get())
+            subdb._pointers.push_back(self._sequences[index].get())
 
         return subdb
 
