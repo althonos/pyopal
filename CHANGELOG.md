@@ -6,7 +6,25 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## [Unreleased]
-[Unreleased]: https://github.com/althonos/pyopal/compare/v0.5.0-a2...HEAD
+[Unreleased]: https://github.com/althonos/pyopal/compare/v0.5.0-a3...HEAD
+
+
+## [v0.5.0-a3] - 2024-01-15
+[v0.5.0-a3]: https://github.com/althonos/pyopal/compare/v0.5.0-a2...v0.5.0-a3
+
+### Added
+- Additional score matrices using the data files from Opal.
+
+### Changed
+- Avoid temporary data copy in `Database._encode`.
+- Move Cython and Opal headers inside package to allow Cython import in other extensions.
+- Make `Database` use mostly the pointer array to make the algorithms more generic over the storage class.
+- Make `MAX_ALPHABET_SIZE` a constant of `pyopal.lib` rather than a user-defined macro for compatibility in other extensions.
+
+### Fixed
+- `ScoreMatrix` buffer-protocol not returning a read-only buffer.
+- `Database.mask` accessing out-of-bound elements when building pointer array.
+- Broken detection of `PyInterpreterState_GetID` in `setup.py`.
 
 
 ## [v0.5.0-a2] - 2024-01-12
