@@ -1258,6 +1258,7 @@ cdef class Aligner:
         cdef int                       _overflow
         cdef int                       _algo
         cdef size_t                    i
+        cdef size_t                    j
         cdef int                       retcode
         cdef ScoreResult               result
         cdef FullResult                full_result
@@ -1303,9 +1304,9 @@ cdef class Aligner:
             res_array = PyMem_Calloc(size, sizeof(OpalSearchResult*))
             results_raw.reserve(size)
             results = PyList_New(size)
-            for i in range(size):
+            for i, j in enumerate(range(start, end)):
                 result = result_type.__new__(result_type)
-                result._target_index = i + start
+                result._target_index = j
                 Py_INCREF(result)
                 PyList_SET_ITEM(results, i, result)
                 results_raw.push_back(&result._result)
@@ -1330,11 +1331,11 @@ cdef class Aligner:
 
             # record query and target lengths if in full mode so that
             # the alignment coverage can be computed later
-            for i in range(size):
+            for i, j in enumerate(range(start, end)):
                 if _mode == opal.OPAL_SEARCH_ALIGNMENT:
                     full_result = results[i]
                     full_result._query_length = length
-                    full_result._target_length = database._lengths[i]
+                    full_result._target_length = database._lengths[j]
 
         # check the alignment worked and return results
         if retcode == opal.OPAL_ERR_NO_SIMD_SUPPORT:
