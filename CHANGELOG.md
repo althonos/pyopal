@@ -6,7 +6,21 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## [Unreleased]
-[Unreleased]: https://github.com/althonos/pyopal/compare/v0.5.0-a3...HEAD
+[Unreleased]: https://github.com/althonos/pyopal/compare/v0.5.0-a4...HEAD
+
+
+## [v0.5.0-a4] - 2024-01-17
+[v0.5.0-a4]: https://github.com/althonos/pyopal/compare/v0.5.0-a3...v0.5.0-a4
+
+### Added
+- `encode_into` and `decode_into` sans-io methods of `Alphabet`.
+- `Aligner` class to handle alignment of a query to a database.
+- `ScoreMatrix.__eq__` implementation.
+- `Database.lengths` property to get the lengths of all the sequences in a database without decoding them.
+- `pyopal.align` top-level function to handle multithreaded alignments.
+
+### Fixed
+- `FullResult.cigar` crashing on alignments starting with `X`.
 
 
 ## [v0.5.0-a3] - 2024-01-15
