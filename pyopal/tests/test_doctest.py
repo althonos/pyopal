@@ -14,11 +14,6 @@ import types
 import warnings
 from unittest import mock
 
-try:
-    import numpy
-except ImportError:
-    numpy = None
-
 import pyopal
 
 
@@ -70,13 +65,25 @@ def load_tests(loader, tests, ignore):
     packages = [None, pyopal]
 
     for pkg in iter(packages.pop, None):
+        globs = dict(pyopal=pyopal, Bio=Bio, **pkg.__dict__)
+        tests.addTests(
+            doctest.DocTestSuite(
+                pkg,
+                globs=globs,
+                setUp=setUp,
+                tearDown=tearDown,
+                optionflags=+doctest.ELLIPSIS,
+            )
+        )
         for (_, subpkgname, subispkg) in pkgutil.walk_packages(pkg.__path__):
             # do not import __main__ module to avoid side effects!
             if subpkgname == "__main__" or subpkgname.startswith("tests"):
                 continue
             # import the submodule and add it to the tests
             module = importlib.import_module(".".join([pkg.__name__, subpkgname]))
-            globs = dict(pyopal=pyopal, numpy=numpy, Bio=Bio, **module.__dict__)
+            if hasattr(module, "__test__"):
+                del module.__test__
+            globs = dict(pyopal=pyopal, Bio=Bio, **module.__dict__)
             tests.addTests(
                 doctest.DocTestSuite(
                     module,

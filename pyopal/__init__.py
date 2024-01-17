@@ -115,6 +115,14 @@ def align(
         ``score``, `EndResult` for mode ``end`` and `FullResult` for 
         mode ``full``.
 
+    Example:
+        >>> targets = ["AACCGCTG", "ATGCGCT", "TTATTACG"]
+        >>> for result in pyopal.align("ACCTG", targets, gap_open=2):
+        ...     print(result.score, targets[result.target_index])
+        41 AACCGCTG
+        31 ATGCGCT
+        23 TTATTACG
+
     """
     # derive default parameters
     if threads == 0:

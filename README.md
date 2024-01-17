@@ -74,7 +74,13 @@ of the documentation for other ways to install PyOpal on your machine.
 
 ## 💡 Example
 
-`pyopal` supports sequences passed as Python strings:
+All classes are imported in the main namespace `pyopal`:
+```python
+import pyopal
+```
+
+`pyopal` can work with sequences passed as Python strings, 
+as well as with ASCII strings in `bytes` objects:
 ```python
 query = "MAGFLKVVQLLAKYGSKAVQWAWANKGKILDWLNAGQAIDWVVSKIKQILGIK"
 database = [
@@ -85,9 +91,10 @@ database = [
 ]
 ```
 
-If you plan to reuse the database across several queries,
-you can store it in a `pyopal.Database`, which contains
-encoded queries:
+If you plan to reuse the database across several queries, you can store it in 
+a [`Database`](https://pyopal.readthedocs.io/en/stable/api/database.html#pyopal.Database), 
+which will keep sequences encoded according to 
+an [`Alphabet`](https://pyopal.readthedocs.io/en/stable/api/alphabet.html#pyopal.Alphabet):
 
 ```python
 database = pyopal.Database(database)
@@ -101,8 +108,9 @@ for result in pyopal.align(query, database):
     print(result.score, result.target_index, database[result.target_index])
 ```
 
-See the [API documentation](https://pyopal.readthedocs.io) for more examples,
-including how to use the internal API.
+See the [API documentation](https://pyopal.readthedocs.io/en/stable/api/index.html) 
+for more examples, including how to use the internal API, and detailed 
+reference of the parameters and result types.
 
 ## 🧶 Thread-safety
 
