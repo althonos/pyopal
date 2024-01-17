@@ -1192,6 +1192,8 @@ cdef class Aligner:
         Arguments:
             query (`str` or byte-like object): The sequence to query the
                 database with.
+            database (`~pyopal.BaseDatabase`): The database sequences
+                to align the query to.
 
         Keyword Arguments:
             mode (`str`): The search mode to use for querying the database:

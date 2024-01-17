@@ -5,9 +5,9 @@ try:
 except ImportError:
     from typing_extensions import Literal  # type: ignore
 
-SEARCH_MODE = Literal["score", "end", "full"]
-SEARCH_OVERFLOW = Literal["simple", "buckets"]
-SEARCH_ALGORITHM = Literal["nw", "hw", "ov", "sw"]
+ALIGN_MODE = Literal["score", "end", "full"]
+ALIGN_OVERFLOW = Literal["simple", "buckets"]
+ALIGN_ALGORITHM = Literal["nw", "hw", "ov", "sw"]
 COVERAGE_REFERENCE = Literal["query", "target"]
 
 # --- Parameters ---------------------------------------------------------------
@@ -140,30 +140,30 @@ class Aligner:
     @typing.overload
     def align(
         self,
-        sequence: typing.Union[str, bytes, bytearray],
-        database: BaseDatabase,
-        *,
-        mode: Literal["end"] = "end",
-        overflow: SEARCH_OVERFLOW = "buckets",
-        algorithm: SEARCH_ALGORITHM = "sw",
-    ) -> typing.Sequence[EndResult]: ...
-    @typing.overload
-    def align(
-        self,
-        sequence: typing.Union[str, bytes, bytearray],
+        query: typing.Union[str, bytes, bytearray],
         database: BaseDatabase,
         *,
         mode: Literal["full"] = "full",
-        overflow: SEARCH_OVERFLOW = "buckets",
-        algorithm: SEARCH_ALGORITHM = "sw",
+        overflow: ALIGN_OVERFLOW = "buckets",
+        algorithm: ALIGN_ALGORITHM = "sw",
     ) -> typing.Sequence[FullResult]: ...
     @typing.overload
     def align(
         self,
-        sequence: typing.Union[str, bytes, bytearray],
+        query: typing.Union[str, bytes, bytearray],
         database: BaseDatabase,
         *,
-        mode: SEARCH_MODE = "score",
-        overflow: SEARCH_OVERFLOW = "buckets",
-        algorithm: SEARCH_ALGORITHM = "sw",
+        mode: Literal["end"] = "end",
+        overflow: ALIGN_OVERFLOW = "buckets",
+        algorithm: ALIGN_ALGORITHM = "sw",
+    ) -> typing.Sequence[EndResult]: ...
+    @typing.overload
+    def align(
+        self,
+        query: typing.Union[str, bytes, bytearray],
+        database: BaseDatabase,
+        *,
+        mode: ALIGN_MODE = "score",
+        overflow: ALIGN_OVERFLOW = "buckets",
+        algorithm: ALIGN_ALGORITHM = "sw",
     ) -> typing.Sequence[ScoreResult]: ...

@@ -23,7 +23,7 @@
 
 [Opal](https://github.com/Martinsos/opal) is a sequence aligner enabling fast
 sequence similarity search using either of the Smith-Waterman, semi-global or
-Needleman-Wunsch algorithms. It is used part of the SW#db method[\[1\]](#ref1) 
+Needleman-Wunsch algorithms. It is used part of the SW#db method[\[1\]](#ref1)
 to align a query sequence to multiple database sequences on CPU.
 
 PyOpal is a Python module that provides bindings to [Opal](https://github.com/Martinsos/opal)
@@ -32,7 +32,7 @@ interface to query a database of sequences and access the search results. It
 interacts with the Opal interface rather than with the CLI, which has the
 following advantages:
 
-- **no binary dependency**: PyOpal is distributed as a Python package, so 
+- **no binary dependency**: PyOpal is distributed as a Python package, so
   you can add it as a dependency to your project, and stop worrying about the
   Opal binary being present on the end-user machine.
 - **no intermediate files**: Everything happens in memory, in a Python object
@@ -51,9 +51,9 @@ following advantages:
 
 ## 🔧 Installing
 
-PyOpal is available for all modern versions (3.6+), depending either 
-on the lightweight Python package [`archspec`](https://pypi.org/project/archspec) 
-or on [`py-cpuinfo`](https://pypi.org/project/archspec) for runtime CPU 
+PyOpal is available for all modern versions (3.6+), depending either
+on the lightweight Python package [`archspec`](https://pypi.org/project/archspec)
+or on [`py-cpuinfo`](https://pypi.org/project/archspec) for runtime CPU
 feature detection, depending on the operating system.
 
 It can be installed directly from [PyPI](https://pypi.org/project/pyopal/),
@@ -74,41 +74,43 @@ of the documentation for other ways to install PyOpal on your machine.
 
 ## 💡 Example
 
-Create a database from some reference sequences:
+`pyopal` supports sequences passed as Python strings:
 ```python
-import pyopal
-
-database = pyopal.Database([
-    "MESILDLQELETSEEESALMAASTVSNNC",                         # goadvionin A
-    "MKKAVIVENKGCATCSIGAACLVDGPIPDFEIAGATGLFGLWG",           # subtilosin A
-    "MAGFLKVVQILAKYGSKAVQWAWANKGKILDWINAGQAIDWVVEKIKQILGIK", # lacticin Z
-    "MTQIKVPTALIASVHGEGQHLFEPMAARCTCTTIISSSSTF",             # plantazolicin
-])
+query = "MAGFLKVVQLLAKYGSKAVQWAWANKGKILDWLNAGQAIDWVVSKIKQILGIK"
+database = [
+    "MESILDLQELETSEEESALMAASTVSNNC",
+    "MKKAVIVENKGCATCSIGAACLVDGPIPDFEIAGATGLFGLWG",
+    "MAGFLKVVQILAKYGSKAVQWAWANKGKILDWINAGQAIDWVVEKIKQILGIK",
+    "MTQIKVPTALIASVHGEGQHLFEPMAARCTCTTIISSSSTF",
+]
 ```
 
-Then search it with a query sequence, and show the target sequence with the
-highest score:
+If you plan to reuse the database across several queries,
+you can store it in a `pyopal.Database`, which contains
+encoded queries:
+
 ```python
-results = database.search("MAGFLKVVQLLAKYGSKAVQWAWANKGKILDWLNAGQAIDWVVSKIKQILGIK")
-best = max(results, key=lambda result: result.score)
-print(best.score, best.target_index, database[best.target_index])
+database = pyopal.Database(database)
 ```
 
-You can also get the alignment for every target, but this must be enabled
-when searching the database:
+The top-level function `pyopal.align` can be used to align a query
+sequence against a database, using multithreading to process chunks
+of the database in parallel:
 ```python
-results = database.search("MESVLDLQELETSEEESALMAASTISQNC", mode="full")
-for result in results:
-    print(result.score, result.identity(), result.cigar())
+for result in pyopal.align(query, database):
+    print(result.score, result.target_index, database[result.target_index])
 ```
+
+See the [API documentation](https://pyopal.readthedocs.io) for more examples,
+including how to use the internal API.
 
 ## 🧶 Thread-safety
 
 `Database` objects are thread safe through a
 [C++17 read/write lock](https://en.cppreference.com/w/cpp/thread/shared_mutex)
 that prevents modification while the database is searched. In addition, the
-`Database.search`  method is re-entrant and can be safely used to query the same
-database in parallel with different queries across different threads:
+`Aligner.align`  method is re-entrant and can be safely used to query the
+same database in parallel with different queries across different threads:
 
 ```python
 import multiprocessing.pool
@@ -127,10 +129,10 @@ database = pyopal.Database([
     for record in Bio.SeqIO.parse("vendor/opal/test_data/db/uniprot_sprot12071.fasta", "fasta")
 ])
 
+aligner = pyopal.Aligner()
 with multiprocessing.pool.ThreadPool() as pool:
-    hits = dict(pool.map(lambda q: (q, database.search(q)), queries))
+    hits = dict(pool.map(lambda q: (q, aligner.align(q, database)), queries))
 ```
-
 
 <!-- ## ⏱️ Benchmarks -->
 
