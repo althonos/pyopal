@@ -440,7 +440,7 @@ cdef class BaseDatabase:
     """The base class for views of database sequences.
 
     To allow reusing the rest of the code, this class can be inherited
-    from a Cython extension and used with `Aligner.align`. It only 
+    from a Cython extension and used with `Aligner.align`. It only
     requires to fill the vector of sequence pointers and the vector
     of lengths expected by Opal, and is agnostic of how the sequences
     are actually stored.
@@ -456,7 +456,7 @@ cdef class BaseDatabase:
     _DEFAULT_ALPHABET = Alphabet()
 
     # --- Magic methods --------------------------------------------------------
-    
+
     def __cinit__(self):
         self.lock = SharedMutex()
         self._lengths.clear()
@@ -472,8 +472,8 @@ cdef class BaseDatabase:
             return self._pointers.size()
 
     # --- Encoding -------------------------------------------------------------
-    
-    cdef digit_t* _encode(self, object sequence) except *:  
+
+    cdef digit_t* _encode(self, object sequence) except *:
         cdef bytes    encoded
         cdef char*    indices
         cdef digit_t* dst
@@ -518,7 +518,7 @@ cdef class BaseDatabase:
             assert index_ < self._pointers.size()
             assert self._pointers[index_] != NULL
             return self._decode(self._pointers[index_], self._lengths[index_])
-    
+
 
 cdef class Database(BaseDatabase):
     """A database of target sequences.
@@ -803,6 +803,9 @@ cdef class ScoreResult:
         cdef str ty = type(self).__name__
         return f"{ty}({self.target_index}, score={self.score!r})"
 
+    def __reduce__(self):
+        return type(self), (self.target_index, self.score)
+
     @property
     def target_index(self):
         """`int`: The index of the target in the database.
@@ -842,6 +845,9 @@ cdef class EndResult(ScoreResult):
             f"target_end={self.target_end!r})"
         )
 
+    def __reduce__(self):
+        return type(self), (self.target_index, self.score, self.query_end, self.target_end)
+
     @property
     def query_end(self):
         """`int`: The coordinate where the alignment ends in the query.
@@ -855,7 +861,6 @@ cdef class EndResult(ScoreResult):
         """
         assert self._result.endLocationTarget >= 0
         return self._result.endLocationTarget
-
 
 
 cdef class FullResult(EndResult):
@@ -902,6 +907,22 @@ cdef class FullResult(EndResult):
             f"target_length={self.target_length!r}, "
             f"alignment={self.alignment!r})"
         )
+
+    def __reduce__(self):
+        return (
+            type(self),
+            (
+                self.target_index,
+                self.score,
+                self.query_end,
+                self.target_end,
+                self.query_start,
+                self.target_start,
+                self.query_length,
+                self.target_length,
+                self.alignment
+            )
+        0
 
     @property
     def query_start(self):
@@ -1075,6 +1096,7 @@ cdef class FullResult(EndResult):
         # compute the final coverage
         return 0.0 if length < 0 else (<float> length) / reflength
 
+
 cdef class Aligner:
     """The Opal aligner.
     """
@@ -1084,18 +1106,17 @@ cdef class Aligner:
     _DEFAULT_GAP_EXTEND = 1
 
     def __init__(
-        self, 
+        self,
         ScoreMatrix score_matrix = None,
-        *,
-        int gap_open = _DEFAULT_GAP_OPEN, 
-        int gap_extend = _DEFAULT_GAP_EXTEND, 
+        int gap_open = _DEFAULT_GAP_OPEN,
+        int gap_extend = _DEFAULT_GAP_EXTEND,
     ):
         """Create a new Aligner with the given parameters.
 
         Arguments:
-            score_matrix (`~pyopal.ScoreMatrix`): The score 
+            score_matrix (`~pyopal.ScoreMatrix`): The score
                 matrix to use for scoring the alignments.
-            gap_open(`int`): The gap opening penalty :math:`G` for 
+            gap_open(`int`): The gap opening penalty :math:`G` for
                 scoring the alignments.
             gap_extend (`int`): The gap extension penalty :math:`E`
                 for scoring the alignments.
@@ -1132,13 +1153,16 @@ cdef class Aligner:
             args.append(f"gap_extend={self.gap_extend!r}")
         return f"{type(self).__name__}({', '.join(args)})"
 
+    def __reduce__(self):
+        return type(self), (self.score_matrix, self.gap_open, self.gap_extend)
+
     def align(
-        self, 
-        object sequence not None, 
-        Database database not None,
+        self,
+        object sequence not None,
+        BaseDatabase database not None,
         *,
-        str mode = "score", 
-        str overflow = "buckets", 
+        str mode = "score",
+        str overflow = "buckets",
         str algorithm = "sw"
     ):
         """Align the query sequence to all targets of the database.
@@ -1254,13 +1278,13 @@ cdef class Aligner:
                     _overflow,
                 )
 
-        # record query and target lengths if in full mode so that
-        # the alignment coverage can be computed later
-        if _mode == opal.OPAL_SEARCH_ALIGNMENT:
-            for i in range(size):
-                full_result = results[i]
-                full_result._query_length = length
-                full_result._target_length = database._lengths[i]
+            # record query and target lengths if in full mode so that
+            # the alignment coverage can be computed later
+            if _mode == opal.OPAL_SEARCH_ALIGNMENT:
+                for i in range(size):
+                    full_result = results[i]
+                    full_result._query_length = length
+                    full_result._target_length = database._lengths[i]
 
         # check the alignment worked and return results
         if retcode == opal.OPAL_ERR_NO_SIMD_SUPPORT:
