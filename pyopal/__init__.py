@@ -6,6 +6,7 @@ __license__ = "MIT"
 __all__ = [
     "Alphabet",
     "Aligner",
+    "BaseDatabase",
     "Database",
     "ScoreMatrix",
     "ScoreResult",
@@ -23,6 +24,7 @@ from . import lib
 from .lib import (
     Alphabet,
     Aligner,
+    BaseDatabase,
     Database,
     ScoreMatrix,
     ScoreResult,
@@ -59,7 +61,7 @@ if __doc__ is not None:
 
 def align(
     query: typing.Union[str, bytes, bytearray],
-    database: typing.Union[Database, typing.Iterable[typing.Union[str, bytes, bytearray]]],
+    database: typing.Union[BaseDatabase, typing.Iterable[typing.Union[str, bytes, bytearray]]],
     score_matrix: typing.Optional[ScoreMatrix] = None,
     *,
     gap_open: int = 3,
@@ -129,7 +131,7 @@ def align(
         threads = os.cpu_count() or 1
     if score_matrix is None:
         score_matrix = ScoreMatrix.aa()
-    if not isinstance(database, Database):
+    if not isinstance(database, BaseDatabase):
         database = Database(database, score_matrix.alphabet)
 
     # avoid using more threads than necessary
