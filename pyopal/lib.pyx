@@ -177,7 +177,9 @@ cdef class Alphabet:
     """A class for ordinal encoding of sequences.
     """
 
-    def __init__(self, str letters = "ARNDCQEGHILKMFPSTWYVBZX*"):
+    _DEFAULT_LETTERS = "ARNDCQEGHILKMFPSTWYVBZX*"
+
+    def __init__(self, str letters = _DEFAULT_LETTERS):
         if len(letters) != len(set(letters)):
             raise ValueError("duplicate symbols in alphabet letters")
         if any(x != '*' and not x.isupper() for x in letters):
@@ -211,6 +213,8 @@ cdef class Alphabet:
         return type(self), (self.letters,)
 
     def __repr__(self):
+        if self.letters == self.__DEFAULT_LETTERS:
+            return f"{type(self).__name__}()"
         return f"{type(self).__name__}({self.letters!r})"
 
     def __str__(self):
@@ -317,7 +321,17 @@ cdef class ScoreMatrix:
 
     @classmethod
     def aa(cls, name: str = "BLOSUM50"):
-        """Create a default amino-acid scoring matrix (BLOSUM50).
+        """Create a scoring matrix from a built-in matrix.
+
+        Arguments:
+            name (`str`): The name of the built-in scoring matrix
+                to use. Supported values are: ``BLOSUM45``, ``BLOSUM50``,
+                ``BLOSUM62``, ``PAM120`` and ``PAM250``.
+
+        Note:
+            Only ``BLOSUM50`` is configured to support unknown alphabet
+            symbols.
+
         """
         if not name in _SCORE_MATRICES:
             raise ValueError(f"unknown scoring matrix: {name!r}")
@@ -377,6 +391,11 @@ cdef class ScoreMatrix:
         for i, row in enumerate(matrix):
             for j, value in enumerate(row):
                 self._matrix[i*length+j] = value
+
+    def __eq__(self, object other):
+        if not isinstance(other, ScoreMatrix):
+            return NotImplemented
+        return self.alphabet == other.alphabet and self.matrix == other.matrix
 
     def __repr__(self):
         cdef str ty = type(self).__name__
