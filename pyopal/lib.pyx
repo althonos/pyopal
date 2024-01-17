@@ -1284,12 +1284,6 @@ cdef class Aligner:
         else:
             raise ValueError(f"invalid algorithm: {algorithm!r}")
 
-        # check slice is valid
-        if end < start:
-            raise IndexError("database slice end is lower than start")
-        if end > database._pointers.size():
-            end = database._pointers.size()
-
         # check score matrix
         if database.alphabet != self.alphabet:
             raise ValueError("database and score matrix have different alphabets")
@@ -1299,9 +1293,14 @@ cdef class Aligner:
 
         # search database
         with database.lock.read:
+            # check slice is valid
+            if end < start:
+                raise IndexError("database slice end is lower than start")
+            if end > database._pointers.size():
+                end = database._pointers.size()
+            # compute size of slice
             size = 0 if end == 0 else end - start
             # Prepare list of results
-            res_array = PyMem_Calloc(size, sizeof(OpalSearchResult*))
             results_raw.reserve(size)
             results = PyList_New(size)
             for i, j in enumerate(range(start, end)):
