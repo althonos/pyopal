@@ -105,7 +105,6 @@ cdef class Database:
     cdef          vector[seq_t]    _sequences
     cdef          vector[digit_t*] _pointers
     cdef          vector[int]      _lengths
-    cdef          searchfn_t       _search
 
     cdef digit_t* _encode(self, object sequence) except *
     cdef str _decode(self, digit_t* encoded, int length) except *
@@ -118,3 +117,10 @@ cdef class Database:
 
     cpdef Database mask(self, object bitmask)
     cpdef Database extract(self, object indices)
+
+cdef class Aligner:
+    cdef readonly Alphabet    alphabet
+    cdef readonly ScoreMatrix score_matrix
+    cdef readonly int         gap_open
+    cdef readonly int         gap_extend
+    cdef          searchfn_t  _search

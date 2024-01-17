@@ -599,8 +599,9 @@ cdef class FullResult(EndResult):
             `str`: A CIGAR string in SAM format describing the alignment.
 
         Example:
+            >>> aligner = Aligner()
             >>> db = Database(["AACCGCTG"])
-            >>> hit = db.search("ACCTCG", mode="full", algorithm="nw")[0]
+            >>> hit = aligner.align("ACCTCG", db, mode="full", algorithm="nw")[0]
             >>> hit.cigar()
             '1D5M1D1M'
 
@@ -668,8 +669,9 @@ cdef class FullResult(EndResult):
             only be 87.5%, since the first letter of the target is not
             covered by the alignment::
 
+                >>> aligner = Aligner()
                 >>> db = Database(["AACCGCTG"])
-                >>> hit = db.search("ACCTCG", mode="full", algorithm="nw")[0]
+                >>> hit = aligner.align("ACCTCG", db, mode="full", algorithm="nw")[0]
                 >>> hit.coverage("query")
                 1.0
                 >>> hit.coverage("target")
@@ -727,37 +729,23 @@ cdef class Database:
 
     """
 
-    _DEFAULT_SCORE_MATRIX = ScoreMatrix.aa()
+    _DEFAULT_ALPHABET = Alphabet()
 
     # --- Magic methods --------------------------------------------------------
 
     def __cinit__(self):
-        self.lock       = SharedMutex()
-        self._search    = NULL
+        self.lock = SharedMutex()
         self._sequences.clear()
         self._lengths.clear()
         self._pointers.clear()
 
     def __init__(self, object sequences=(), Alphabet alphabet = None):
         # record the alphabet
-        self.alphabet = self._DEFAULT_SCORE_MATRIX.alphabet if alphabet is None else alphabet
-
+        self.alphabet = self._DEFAULT_ALPHABET if alphabet is None else alphabet
         # reset the collection if `__init__` is called more than once
         self.clear()
         # add the sequences to the database
         self.extend(sequences)
-
-        # Select the best available SIMD backend
-        if SSE2_BUILD_SUPPORT and _SSE2_RUNTIME_SUPPORT:
-            self._search = opalSearchDatabaseSSE2
-        if SSE4_BUILD_SUPPORT and _SSE4_RUNTIME_SUPPORT:
-            self._search = opalSearchDatabaseSSE4
-        if AVX2_BUILD_SUPPORT and _AVX2_RUNTIME_SUPPORT:
-            self._search = opalSearchDatabaseAVX2
-        if NEON_BUILD_SUPPORT and _NEON_RUNTIME_SUPPORT:
-            self._search = opalSearchDatabaseNEON
-        if self._search is NULL:
-            raise RuntimeError("No supported SIMD backend available")
 
     def __reduce__(self):
         return (type(self), ((), self.alphabet), None, iter(self))
@@ -994,7 +982,6 @@ cdef class Database:
 
         subdb = Database.__new__(Database)
         subdb.alphabet = self.alphabet
-        subdb._search = self._search
 
         for i, b in enumerate(bitmask):
             if b:
@@ -1029,7 +1016,6 @@ cdef class Database:
 
         subdb = Database.__new__(Database)
         subdb.alphabet = self.alphabet
-        subdb._search = self._search
         subdb._sequences.reserve(len(indices))
         subdb._pointers.reserve(len(indices))
         subdb._lengths.reserve(len(indices))
@@ -1043,28 +1029,68 @@ cdef class Database:
 
         return subdb
 
-    # --- Opal search ----------------------------------------------------------
 
-    def search(
-        self,
-        object sequence,
+# --- Aligner
+
+cdef class Aligner:
+
+    _DEFAULT_SCORE_MATRIX = ScoreMatrix.aa()
+
+    def __init__(
+        self, 
         ScoreMatrix score_matrix = None,
         *,
-        int gap_open = 3,
-        int gap_extend = 1,
-        str mode = "score",
-        str overflow = "buckets",
-        str algorithm = "sw",
+        int gap_open = 3, 
+        int gap_extend = 1, 
     ):
-        """Search the database with a query sequence.
+        """Create a new Aligner with the given parameters.
+
+        Arguments:
+            score_matrix (`~pyopal.ScoreMatrix`): The score 
+                matrix to use for scoring the alignments.
+            gap_open(`int`): The gap opening penalty :math:`G` for 
+                scoring the alignments.
+            gap_extend (`int`): The gap extension penalty :math:`E`
+                for scoring the alignments.
+
+        Hit:
+            A gap of length :math:`N` will receive a penalty of
+            :math:`E + (N - 1)G`.
+
+        """
+        self.score_matrix = score_matrix or self._DEFAULT_SCORE_MATRIX
+        self.alphabet = self.score_matrix.alphabet
+        self.gap_open = gap_open
+        self.gap_extend = gap_extend
+
+        # Select the best available SIMD backend
+        if SSE2_BUILD_SUPPORT and _SSE2_RUNTIME_SUPPORT:
+            self._search = opalSearchDatabaseSSE2
+        if SSE4_BUILD_SUPPORT and _SSE4_RUNTIME_SUPPORT:
+            self._search = opalSearchDatabaseSSE4
+        if AVX2_BUILD_SUPPORT and _AVX2_RUNTIME_SUPPORT:
+            self._search = opalSearchDatabaseAVX2
+        if NEON_BUILD_SUPPORT and _NEON_RUNTIME_SUPPORT:
+            self._search = opalSearchDatabaseNEON
+        if self._search is NULL:
+            raise RuntimeError("no supported SIMD backend available")
+
+    def align(
+        self, 
+        object sequence not None, 
+        Database database not None,
+        *,
+        str mode = "score", 
+        str overflow = "buckets", 
+        str algorithm = "sw"
+    ):
+        """Align the query sequence to all targets of the database.
 
         Arguments:
             sequence (`str` or byte-like object): The sequence to query the
                 database with.
 
         Keyword Arguments:
-            gap_open(`int`): The gap opening penalty :math:`G`.
-            gap_extend (`int`): The gap extension penalty :math:`E`.
             mode (`str`): The search mode to use for querying the database:
                 ``score`` to only report scores for each hit (default),
                 ``end`` to report scores and end coordinates for each
@@ -1084,10 +1110,6 @@ cdef class Database:
                 query or target edges, and ``sw`` for local Smith-Waterman
                 alignment.
 
-        Hit:
-            A gap of length :math:`N` will receive a penalty of
-            :math:`E + (N - 1)G`.
-
         Returns:
             `list` of `pyopal.ScoreResult`: A list containing one
                 `ScoreResult` object for each target sequence in the
@@ -1103,8 +1125,6 @@ cdef class Database:
             `OverflowError`: When the score computed by Opal for a
                 sequence overflows or underflows the limit values for
                 the SIMD backend.
-            `RuntimeError`: When attempting to call `Database.search` on
-                a platform with no supported SIMD backend.
 
         """
         assert self.alphabet is not None
@@ -1124,33 +1144,31 @@ cdef class Database:
         cdef seq_t                     query
         cdef int                       length      = len(sequence)
 
-        # validate parameters
+         # validate parameters
         if mode in _OPAL_SEARCH_MODES:
             _mode = _OPAL_SEARCH_MODES[mode]
             result_type = _OPAL_SEARCH_RESULTS[mode]
         else:
-            raise ValueError(f"Invalid search mode: {mode!r}")
+            raise ValueError(f"invalid search mode: {mode!r}")
         if overflow in _OPAL_OVERFLOW_MODES:
             _overflow = _OPAL_OVERFLOW_MODES[overflow]
         else:
-            raise ValueError(f"Invalid overflow mode: {overflow!r}")
+            raise ValueError(f"invalid overflow mode: {overflow!r}")
         if algorithm in _OPAL_ALGORITHMS:
             _algo = _OPAL_ALGORITHMS[algorithm]
         else:
-            raise ValueError(f"Invalid algorithm: {algorithm!r}")
+            raise ValueError(f"invalid algorithm: {algorithm!r}")
 
         # check score matrix
-        if score_matrix is None:
-            score_matrix = self._DEFAULT_SCORE_MATRIX
-        if score_matrix.alphabet != self.alphabet:
+        if database.alphabet != self.alphabet:
             raise ValueError("database and score matrix have different alphabets")
 
         # encode query
-        query = pyshared(self._encode(sequence))
+        query = pyshared(database._encode(sequence))
 
         # search database
-        with self.lock.read:
-            size = self._pointers.size()
+        with database.lock.read:
+            size = database._pointers.size()
             # Prepare list of results
             res_array = PyMem_Calloc(size, sizeof(OpalSearchResult*))
             results_raw.reserve(size)
@@ -1166,12 +1184,12 @@ cdef class Database:
                 retcode = self._search(
                     query.get(),
                     length,
-                    self._pointers.data(),
-                    self._pointers.size(),
-                    self._lengths.data(),
-                    gap_open,
-                    gap_extend,
-                    score_matrix._matrix.data(),
+                    database._pointers.data(),
+                    database._pointers.size(),
+                    database._lengths.data(),
+                    self.gap_open,
+                    self.gap_extend,
+                    self.score_matrix._matrix.data(),
                     self.alphabet.length,
                     results_raw.data(),
                     _mode,
@@ -1185,20 +1203,13 @@ cdef class Database:
             for i in range(size):
                 full_result = results[i]
                 full_result._query_length = length
-                full_result._target_length = self._lengths[i]
+                full_result._target_length = database._lengths[i]
 
         # check the alignment worked and return results
         if retcode == opal.OPAL_ERR_NO_SIMD_SUPPORT:
-            raise RuntimeError("No available SIMD on this platform")
+            raise RuntimeError("no supported SIMD backend available")
         elif retcode == opal.OPAL_ERR_OVERFLOW:
-            raise OverflowError("Overflow detected while computing alignment scores")
+            raise OverflowError("overflow detected while computing alignment scores")
         elif retcode != 0:
-            raise RuntimeError(f"Failed to run search Opal database (code={retcode})")
+            raise RuntimeError(f"failed to align to Opal database (code={retcode})")
         return results
-
-
-
-
-
-
-

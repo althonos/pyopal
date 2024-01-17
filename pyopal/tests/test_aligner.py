@@ -16,7 +16,8 @@ class _TestSearchOverflow(object):
             for k in range(1000, 36000, 1000)
         ]
         database = pyopal.Database(proteins)
-        results = database.search(proteins[0], mode="score", algorithm=self.algorithm)
+        aligner = pyopal.Aligner()
+        results = aligner.align(proteins[0], database, mode="score", algorithm=self.algorithm)
 
 class TestSearchNW(unittest.TestCase, _TestSearchOverflow):
     algorithm = "nw"
@@ -28,26 +29,27 @@ class TestSearchNW(unittest.TestCase, _TestSearchOverflow):
 
         query = "ACCTCG"
         target = "AACCGCTG"
+        aligner = pyopal.Aligner()
         db = pyopal.Database([target])
 
-        results = db.search(query, algorithm=self.algorithm)
+        results = aligner.align(query, db, algorithm=self.algorithm)
         self.assertEqual(len(db), 1)
         self.assertIsInstance(results[0], pyopal.ScoreResult)
         self.assertEqual(results[0].score, 44)
 
-        results = db.search(query, algorithm=self.algorithm, mode="score")
+        results = aligner.align(query, db, algorithm=self.algorithm, mode="score")
         self.assertEqual(len(db), 1)
         self.assertIsInstance(results[0], pyopal.ScoreResult)
         self.assertEqual(results[0].score, 44)
 
-        results = db.search(query, algorithm=self.algorithm, mode="end")
+        results = aligner.align(query, db, algorithm=self.algorithm, mode="end")
         self.assertEqual(len(db), 1)
         self.assertIsInstance(results[0], pyopal.EndResult)
         self.assertEqual(results[0].score, 44)
         self.assertEqual(results[0].query_end, 5)
         self.assertEqual(results[0].target_end, 7)
 
-        results = db.search(query, algorithm=self.algorithm, mode="full")
+        results = aligner.align(query, db, algorithm=self.algorithm, mode="full")
         self.assertEqual(len(db), 1)
         self.assertEqual(results[0].score, 44)
         self.assertIsInstance(results[0], pyopal.FullResult)
@@ -78,26 +80,27 @@ class TestSearchSW(unittest.TestCase, _TestSearchOverflow):
 
         query = "ACCTCG"
         target = "AACCGCTG"
+        aligner = pyopal.Aligner()
         db = pyopal.Database([target])
 
-        results = db.search(query, algorithm=self.algorithm)
+        results = aligner.align(query, db, algorithm=self.algorithm)
         self.assertEqual(len(db), 1)
         self.assertIsInstance(results[0], pyopal.ScoreResult)
         self.assertEqual(results[0].score, 47)
 
-        results = db.search(query, algorithm=self.algorithm, mode="score")
+        results = aligner.align(query, db, algorithm=self.algorithm, mode="score")
         self.assertEqual(len(db), 1)
         self.assertIsInstance(results[0], pyopal.ScoreResult)
         self.assertEqual(results[0].score, 47)
 
-        results = db.search(query, algorithm=self.algorithm, mode="end")
+        results = aligner.align(query, db, algorithm=self.algorithm, mode="end")
         self.assertEqual(len(db), 1)
         self.assertIsInstance(results[0], pyopal.EndResult)
         self.assertEqual(results[0].score, 47)
         self.assertEqual(results[0].query_end, 5)
         self.assertEqual(results[0].target_end, 7)
 
-        results = db.search(query, algorithm=self.algorithm, mode="full")
+        results = aligner.align(query, db, algorithm=self.algorithm, mode="full")
         self.assertEqual(len(db), 1)
         self.assertEqual(results[0].score, 47)
         self.assertIsInstance(results[0], pyopal.FullResult)

@@ -106,38 +106,46 @@ class Database(typing.MutableSequence[str]):
     ) -> None: ...
     def mask(self, bitmask: typing.Sequence[bool]) -> Database: ...
     def extract(self, indices: typing.Sequence[int]) -> Database: ...
-    @typing.overload
-    def search(
+
+class Aligner:
+    def __init__(
         self,
-        sequence: typing.Union[str, bytes, bytearray],
-        score_matrix: typing.Optional[ScoreMatrix],
+        score_matrix: typing.Optional[ScoreMatrix] = None,
         *,
         gap_open: int = 3,
-        gap_extend: int = 1,
+        gap_extend: int = 10
+    ) -> None: ...
+    @property
+    def score_matrix(self) -> ScoreMatrix: ...
+    @property
+    def alphabet(self) -> Alphabet: ...
+    @property
+    def gap_open(self) -> int: ...
+    @property
+    def gap_extend(self) -> int: ...
+    @typing.overload
+    def align(
+        self,
+        sequence: typing.Union[str, bytes, bytearray],
+        *,
         mode: Literal["end"] = "end",
         overflow: SEARCH_OVERFLOW = "buckets",
         algorithm: SEARCH_ALGORITHM = "sw",
     ) -> typing.Sequence[EndResult]: ...
     @typing.overload
-    def search(
+    def align(
         self,
         sequence: typing.Union[str, bytes, bytearray],
-        score_matrix: typing.Optional[ScoreMatrix],
         *,
-        gap_open: int = 3,
-        gap_extend: int = 1,
         mode: Literal["full"] = "full",
         overflow: SEARCH_OVERFLOW = "buckets",
         algorithm: SEARCH_ALGORITHM = "sw",
     ) -> typing.Sequence[FullResult]: ...
     @typing.overload
-    def search(
+    def align(
         self,
         sequence: typing.Union[str, bytes, bytearray],
-        score_matrix: typing.Optional[ScoreMatrix],
         *,
-        gap_open: int = 3,
-        gap_extend: int = 1,
         mode: SEARCH_MODE = "score",
         overflow: SEARCH_OVERFLOW = "buckets",
         algorithm: SEARCH_ALGORITHM = "sw",
