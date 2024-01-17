@@ -6,6 +6,15 @@ import pyopal
 
 class TestDatabase(unittest.TestCase):
 
+    def test_lengths(self):
+        sequences = ["ATGC", "ATTC", "TTCG"]
+        database = pyopal.Database(sequences)
+        self.assertEqual(database.lengths, [4, 4, 4])
+
+        sequences = ["ATGCATTATTGCAGA", "AGGATACATTAC"]
+        database = pyopal.Database(sequences)
+        self.assertEqual(database.lengths, [15, 12])
+
     def test_total_length(self):
         sequences = ["ATGC", "ATTC", "TTCG"]
         database = pyopal.Database(sequences)

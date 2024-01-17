@@ -13,7 +13,7 @@ References:
 # --- C imports ----------------------------------------------------------------
 
 from libc.string cimport memset, memcpy
-from libc.stdint cimport uint32_t
+from libc.stdint cimport uint32_t, UINT32_MAX
 from libc.limits cimport UCHAR_MAX
 from libcpp cimport bool
 from libcpp.numeric cimport accumulate
@@ -473,6 +473,12 @@ cdef class BaseDatabase:
             return self._pointers.size()
 
     @property
+    def lengths(self):
+        """`list` of `int`: The length of each sequence in the database.
+        """
+        return list(self._lengths)
+
+    @property
     def total_length(self):
         """`int`: The total length of the database.
         """
@@ -556,6 +562,12 @@ cdef class Database(BaseDatabase):
         return (type(self), ((), self.alphabet), None, iter(self))
 
     # --- Sequence interface ---------------------------------------------------
+
+    def __getitem__(self, object index):
+        if isinstance(index, slice):
+            indices = range(*index.indices(len(self)))
+            return self.extract(indices)
+        return super().__getitem__(index)
 
     def __setitem__(self, ssize_t index, object sequence):
         cdef size_t  size
@@ -1168,7 +1180,7 @@ cdef class Aligner:
 
     def align(
         self,
-        object sequence not None,
+        object query not None,
         BaseDatabase database not None,
         *,
         str mode = "score",
@@ -1178,7 +1190,7 @@ cdef class Aligner:
         """Align the query sequence to all targets of the database.
 
         Arguments:
-            sequence (`str` or byte-like object): The sequence to query the
+            query (`str` or byte-like object): The sequence to query the
                 database with.
 
         Keyword Arguments:
@@ -1218,6 +1230,25 @@ cdef class Aligner:
                 the SIMD backend.
 
         """
+        return self._align_slice(
+            query,
+            database,
+            mode=mode,
+            overflow=overflow,
+            algorithm=algorithm,
+        )
+
+    def _align_slice(
+        self,
+        object query not None,
+        BaseDatabase database not None,
+        *,
+        str mode = "score",
+        str overflow = "buckets",
+        str algorithm = "sw",
+        uint32_t start = 0,
+        uint32_t end = UINT32_MAX,
+    ):
         assert self.alphabet is not None
         assert self._search is not NULL
 
@@ -1232,8 +1263,8 @@ cdef class Aligner:
         cdef list                      results
         cdef vector[OpalSearchResult*] results_raw
         cdef size_t                    size
-        cdef seq_t                     query
-        cdef int                       length      = len(sequence)
+        cdef seq_t                     encoded
+        cdef int                       length      = len(query)
 
         # validate parameters
         if mode in _OPAL_SEARCH_MODES:
@@ -1250,48 +1281,55 @@ cdef class Aligner:
         else:
             raise ValueError(f"invalid algorithm: {algorithm!r}")
 
+        # check slice is valid
+        if end < start:
+            raise IndexError("database slice end is lower than start")
+        if end > database._pointers.size():
+            end = database._pointers.size()
+
         # check score matrix
         if database.alphabet != self.alphabet:
             raise ValueError("database and score matrix have different alphabets")
 
         # encode query
-        query = pyshared(database._encode(sequence))
+        encoded = pyshared(database._encode(query))
 
         # search database
         with database.lock.read:
-            size = database._pointers.size()
+            size = 0 if end == 0 else end - start
             # Prepare list of results
             res_array = PyMem_Calloc(size, sizeof(OpalSearchResult*))
             results_raw.reserve(size)
             results = PyList_New(size)
             for i in range(size):
                 result = result_type.__new__(result_type)
-                result._target_index = i
+                result._target_index = i + start
                 Py_INCREF(result)
                 PyList_SET_ITEM(results, i, result)
                 results_raw.push_back(&result._result)
             # Run search pipeline in nogil mode
-            with nogil:
-                retcode = self._search(
-                    query.get(),
-                    length,
-                    database._pointers.data(),
-                    database._pointers.size(),
-                    database._lengths.data(),
-                    self.gap_open,
-                    self.gap_extend,
-                    self.score_matrix._matrix.data(),
-                    self.alphabet.length,
-                    results_raw.data(),
-                    _mode,
-                    _algo,
-                    _overflow,
-                )
+            if size > 0:
+                with nogil:
+                    retcode = self._search(
+                        encoded.get(),
+                        length,
+                        &database._pointers.at(start),
+                        size,
+                        &database._lengths.at(start),
+                        self.gap_open,
+                        self.gap_extend,
+                        self.score_matrix._matrix.data(),
+                        self.alphabet.length,
+                        results_raw.data(),
+                        _mode,
+                        _algo,
+                        _overflow,
+                    )
 
             # record query and target lengths if in full mode so that
             # the alignment coverage can be computed later
-            if _mode == opal.OPAL_SEARCH_ALIGNMENT:
-                for i in range(size):
+            for i in range(size):
+                if _mode == opal.OPAL_SEARCH_ALIGNMENT:
                     full_result = results[i]
                     full_result._query_length = length
                     full_result._target_length = database._lengths[i]

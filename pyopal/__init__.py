@@ -14,6 +14,7 @@ __all__ = [
     "align",
 ]
 
+import functools
 import os
 import multiprocessing.pool
 
@@ -56,31 +57,43 @@ def align(
     algorithm = "sw",
     threads = 0,
 ):
-
+    # derive default parameters
     if threads == 0:
-        threads = os.cpu_count()
-
+        threads = os.cpu_count() or 1
     if score_matrix is None:
         score_matrix = ScoreMatrix.aa()
-
     if not isinstance(database, Database):
         database = Database(database, score_matrix.alphabet)
 
-    aligner = Aligner(
-        score_matrix, 
-        gap_open=gap_open, 
-        gap_extend=gap_extend,
-    )
-    
+    # avoid using more threads than necessary
+    if threads > len(database):
+        threads = len(database) or 1
+
+    # align query to database
+    aligner = Aligner(score_matrix, gap_open=gap_open, gap_extend=gap_extend)
     if threads == 1:
-        return aligner.align(
+        # use main thread if a single thread is needed
+        yield from aligner.align(
             query, 
             database, 
             mode=mode, 
             overflow=overflow, 
             algorithm=algorithm
         )
+    else:
+        # cut the database in chunks of similar length
+        chunk_length = len(database) // threads
+        with multiprocessing.pool.ThreadPool(threads) as pool:
+            align = functools.partial(aligner._align_slice, query, database, mode=mode, overflow=overflow, algorithm=algorithm)
+            chunk_hits = pool.imap(
+                lambda x: align(start=x, end=x + chunk_length),
+                range(0, len(database), chunk_length),    
+            )
+            for hits in chunk_hits:
+                yield from hits
+        
 
+        
 
 
 
