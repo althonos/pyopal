@@ -74,8 +74,8 @@ def align(
     Arguments:
         query (`str` or byte-like object): The sequence to query the
             database with.
-        database (`~pyopal.BaseDatabase`): The database sequences
-            to align the query to.
+        database (iterable of `str` or byte-like objects): The database 
+            sequences to align the query to.
         score_matrix (`~pyopal.ScoreMatrix`): The scoring matrix
             to use for the alignment.
 
@@ -107,6 +107,13 @@ def align(
             of threads reported by `os.cpu_count`. If one given, use
             the main threads for aligning, otherwise spawns a 
             `multiprocessing.pool.ThreadPool`.
+
+    Yields:
+        `~pyopal.ScoreResult`: Results for the alignment of the query
+        to each target sequence in the database. The actual type depends 
+        on the requested ``mode``: it will be `ScoreResult` for mode 
+        ``score``, `EndResult` for mode ``end`` and `FullResult` for 
+        mode ``full``.
 
     """
     # derive default parameters

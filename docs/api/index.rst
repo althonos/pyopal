@@ -1,22 +1,32 @@
 API Reference
 =============
 
+.. currentmodule:: pyopal
+
+
+Functions
+---------
+
+.. autofunction:: pyopal.align
+
+
+Classes
+-------
+
 .. toctree::
    :hidden:
 
    alphabet <alphabet>
    score_matrix <score_matrix>
    database <database>
+   aligner <aligner>
    result <result>
-
-
-.. currentmodule:: pyopal
 
 
 .. only:: html
 
     Alphabet
-    --------
+    ^^^^^^^^
 
     .. autosummary::
         :nosignatures:
@@ -25,7 +35,7 @@ API Reference
 
 
     ScoreMatrix
-    -----------
+    ^^^^^^^^^^^
 
     .. autosummary::
         :nosignatures:
@@ -34,7 +44,7 @@ API Reference
 
 
     Database
-    --------
+    ^^^^^^^^
 
     .. autosummary::
         :nosignatures:
@@ -42,8 +52,17 @@ API Reference
         pyopal.Database
 
 
+    Aligner
+    ^^^^^^^
+
+    .. autosummary::
+        :nosignatures:
+
+        pyopal.Aligner
+
+
     Results
-    -------
+    ^^^^^^^
 
     .. autosummary::
        :nosignatures:
@@ -51,4 +70,5 @@ API Reference
        pyopal.ScoreResult
        pyopal.EndResult
        pyopal.FullResult
+
 
