@@ -41,16 +41,24 @@ class ScoreMatrix:
 
 # --- Sequence storage ---------------------------------------------------------
 
-class Database(typing.MutableSequence[str]):
+class BaseDatabase(typing.Sequence[str]):
+    @property
+    def alphabet(self) -> Alphabet: ...
+    def __len__(self) -> int: ...
+    def __getitem__(self, index: int) -> str: ...
+
+class Database(typing.MutableSequence[str], BaseDatabase):
     def __init__(
         self,
         sequences: typing.Iterable[typing.Union[str, bytes, bytearray]] = (),
         alphabet: typing.Optional[Alphabet] = None,
     ) -> None: ...
-    @property
-    def alphabet(self) -> Alphabet: ...
-    def __len__(self) -> int: ...
+    @typing.overload
     def __getitem__(self, index: int) -> str: ...
+    @typing.overload
+    def __getitem__(self, index: slice) -> Database: ...
+    @typing.overload
+    def __getitem__(self, index: typing.Union[int, slice]) -> typing.Union[str, Database]: ...
     def __setitem__(
         self, index: int, sequence: typing.Union[str, bytes, bytearray]
     ) -> None: ...
@@ -133,6 +141,7 @@ class Aligner:
     def align(
         self,
         sequence: typing.Union[str, bytes, bytearray],
+        database: BaseDatabase,
         *,
         mode: Literal["end"] = "end",
         overflow: SEARCH_OVERFLOW = "buckets",
@@ -142,6 +151,7 @@ class Aligner:
     def align(
         self,
         sequence: typing.Union[str, bytes, bytearray],
+        database: BaseDatabase,
         *,
         mode: Literal["full"] = "full",
         overflow: SEARCH_OVERFLOW = "buckets",
@@ -151,6 +161,7 @@ class Aligner:
     def align(
         self,
         sequence: typing.Union[str, bytes, bytearray],
+        database: BaseDatabase,
         *,
         mode: SEARCH_MODE = "score",
         overflow: SEARCH_OVERFLOW = "buckets",
