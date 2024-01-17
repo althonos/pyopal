@@ -224,28 +224,41 @@ cdef class Alphabet:
         else:
             return False
 
-    cdef void encode_raw(self, const unsigned char[:] sequence, digit_t[:] encoded):
+    cpdef void encode_into(self, const unsigned char[:] sequence, digit_t[:] encoded):
+        r"""Encode a sequence to ordinal-encoding into the given buffer.
+        """
         cdef ssize_t       i
         cdef char          code
         cdef unsigned char letter
 
-        for i in range(sequence.shape[0]):
-            letter = sequence[i]
-            if not isalpha(letter):
-                raise ValueError(f"character outside ASCII range: {letter!r}")
-            code = self._ahash[<unsigned char> letter]
-            if code < 0:
-                raise ValueError(f"non-alphabet character in sequence: {chr(letter)!r}")
-            encoded[i] = code
+        if sequence.shape[0] != encoded.shape[0]:
+            raise ValueError("Buffers do not have the same dimensions")
 
-    cdef void decode_raw(self, const digit_t[:] encoded, unsigned char[:] sequence):
+        with nogil:
+            for i in range(sequence.shape[0]):
+                letter = sequence[i]
+                if not isalpha(letter):
+                    raise ValueError(f"character outside ASCII range: {letter!r}")
+                code = self._ahash[<unsigned char> letter]
+                if code < 0:
+                    raise ValueError(f"non-alphabet character in sequence: {chr(letter)!r}")
+                encoded[i] = code
+
+    cpdef void decode_into(self, const digit_t[:] encoded, unsigned char[:] sequence):
+        r"""Decode a sequence from ordinal-encoding into the given buffer.
+        """
         cdef digit_t code
         cdef size_t  length = len(self.letters)
-        for i in range(encoded.shape[0]):
-            code = encoded[i]
-            if code >= length:
-                raise ValueError(f"invalid index in encoded sequence: {code!r}")
-            sequence[i] = ord(self.letters[code])
+
+        if sequence.shape[0] != encoded.shape[0]:
+            raise ValueError("Buffers do not have the same dimensions")
+
+        with nogil:
+            for i in range(encoded.shape[0]):
+                code = encoded[i]
+                if code >= length:
+                    raise ValueError(f"invalid index in encoded sequence: {code!r}")
+                sequence[i] = self._letters[code]
 
     # ---
 
@@ -269,7 +282,7 @@ cdef class Alphabet:
         cdef bytearray encoded = bytearray(len(sequence))
         if isinstance(sequence, str):
             sequence = sequence.encode('ascii')
-        self.encode_raw(sequence, encoded)
+        self.encode_into(sequence, encoded)
         return bytes(encoded)
 
     cpdef str decode(self, object encoded):
@@ -288,7 +301,7 @@ cdef class Alphabet:
 
         """
         cdef bytearray decoded = bytearray(len(encoded))
-        self.decode_raw(encoded, decoded)
+        self.decode_into(encoded, decoded)
         return decoded.decode('ascii')
 
 
@@ -765,7 +778,7 @@ cdef class Database:
             if isinstance(sequence, str):
                 sequence = sequence.encode('ascii')
             view = PyMemoryView_FromMemory(<char*> dst, length * sizeof(digit_t), PyBUF_WRITE)
-            self.alphabet.encode_raw(sequence, view)
+            self.alphabet.encode_into(sequence, view)
         else:
             encoded = self.alphabet.encode(sequence)
             indices = <char*> encoded

@@ -73,8 +73,8 @@ cdef class Alphabet:
     cdef unsigned char _letters[MAX_ALPHABET_SIZE]
     cdef char          _ahash[UCHAR_MAX]
 
-    cdef void encode_raw(self, const unsigned char[:] sequence, digit_t[:] encoded)
-    cdef void decode_raw(self, const digit_t[:] encoded, unsigned char[:] sequence)
+    cpdef void encode_into(self, const unsigned char[:] sequence, digit_t[:] encoded)
+    cpdef void decode_into(self, const digit_t[:] encoded, unsigned char[:] sequence)
 
     cpdef bytes encode(self, object sequence)
     cpdef str decode(self, object encoded)
