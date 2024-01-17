@@ -436,43 +436,43 @@ cdef class ScoreMatrix:
 
 # --- Sequence storage ---------------------------------------------------------
 
-cdef class Database:
-    """A database of target sequences.
+cdef class BaseDatabase:
+    """The base class for views of database sequences.
 
-    Like many biological sequence analysis tools, Opal encodes sequences
-    with an alphabet for faster indexing of matrices. Sequences inserted in
-    a database are stored in encoded format using the alphabet given on
-    instantiation.
+    To allow reusing the rest of the code, this class can be inherited
+    from a Cython extension and used with `Aligner.align`. It only 
+    requires to fill the vector of sequence pointers and the vector
+    of lengths expected by Opal, and is agnostic of how the sequences
+    are actually stored.
 
     Attributes:
         alphabet (`~pyopal.Alphabet`): The alphabet object used for encoding
             the sequences stored in the sequence database.
+        lock (`~pyopal.lib.SharedMutex`): A read-write lock to synchronize
+            the accesses to the database.
 
     """
 
     _DEFAULT_ALPHABET = Alphabet()
 
     # --- Magic methods --------------------------------------------------------
-
+    
     def __cinit__(self):
         self.lock = SharedMutex()
-        self._sequences.clear()
         self._lengths.clear()
         self._pointers.clear()
 
-    def __init__(self, object sequences=(), Alphabet alphabet = None):
-        # record the alphabet
+    def __init__(self, object sequences = (), Alphabet alphabet = None):
         self.alphabet = self._DEFAULT_ALPHABET if alphabet is None else alphabet
-        # reset the collection if `__init__` is called more than once
-        self.clear()
-        # add the sequences to the database
-        self.extend(sequences)
+        if sequences:
+            raise TypeError("cannot create a `BaseDatabase` with sequences")
 
-    def __reduce__(self):
-        return (type(self), ((), self.alphabet), None, iter(self))
+    def __len__(self):
+        with self.lock.read:
+            return self._pointers.size()
 
     # --- Encoding -------------------------------------------------------------
-
+    
     cdef digit_t* _encode(self, object sequence) except *:  
         cdef bytes    encoded
         cdef char*    indices
@@ -501,10 +501,6 @@ cdef class Database:
 
     # --- Sequence interface ---------------------------------------------------
 
-    def __len__(self):
-        with self.lock.read:
-            return self._pointers.size()
-
     def __getitem__(self, ssize_t index):
         cdef ssize_t i
         cdef size_t  size
@@ -522,6 +518,34 @@ cdef class Database:
             assert index_ < self._pointers.size()
             assert self._pointers[index_] != NULL
             return self._decode(self._pointers[index_], self._lengths[index_])
+    
+
+cdef class Database(BaseDatabase):
+    """A database of target sequences.
+
+    Like many biological sequence analysis tools, Opal encodes sequences
+    with an alphabet for faster indexing of matrices. Sequences inserted in
+    a database are stored in encoded format using the alphabet given on
+    instantiation.
+
+    """
+
+    # --- Magic methods --------------------------------------------------------
+
+    def __cinit__(self):
+        self._sequences.clear()
+
+    def __init__(self, object sequences=(), Alphabet alphabet = None):
+        super().__init__(alphabet=alphabet)
+        # reset the collection if `__init__` is called more than once
+        self.clear()
+        # add the sequences to the database
+        self.extend(sequences)
+
+    def __reduce__(self):
+        return (type(self), ((), self.alphabet), None, iter(self))
+
+    # --- Sequence interface ---------------------------------------------------
 
     def __setitem__(self, ssize_t index, object sequence):
         cdef size_t  size
@@ -749,10 +773,6 @@ cdef class Database:
             subdb._pointers.push_back(self._sequences[index].get())
 
         return subdb
-
-
-
-
 
 
 # --- Aligner ------------------------------------------------------------------
