@@ -171,7 +171,7 @@ cdef class WriteLock:
         self.owner.mutex.unlock()
 
 
-# --- Python classes -----------------------------------------------------------
+# --- Parameters ---------------------------------------------------------------
 
 cdef class Alphabet:
     """A class for ordinal encoding of sequences.
@@ -415,305 +415,7 @@ cdef class ScoreMatrix:
             for i in range(length)
         ]
 
-
-cdef class ScoreResult:
-    """The results of a search in ``score`` mode.
-    """
-
-    def __cinit__(self):
-        self._target_index = -1
-        self._result.scoreSet = 0
-        self._result.startLocationQuery = -1
-        self._result.startLocationTarget = -1
-        self._result.endLocationQuery = -1
-        self._result.endLocationTarget = -1
-        self._result.alignmentLength = 0
-        self._result.alignment = NULL
-
-    def __dealloc__(self):
-        PyMem_Free(self._result.alignment)
-
-    def __init__(self, size_t target_index, int score):
-        self._target_index = target_index
-        self._result.score = score
-        self._result.scoreSet = True
-
-    def __repr__(self):
-        cdef str ty = type(self).__name__
-        return f"{ty}({self.target_index}, score={self.score!r})"
-
-    @property
-    def target_index(self):
-        """`int`: The index of the target in the database.
-        """
-        assert self._target_index >= 0
-        return self._target_index
-
-    @property
-    def score(self):
-        """`int`: The score of the alignment.
-        """
-        assert self._result.scoreSet
-        return self._result.score
-
-
-cdef class EndResult(ScoreResult):
-    """The results of a search in ``end`` mode.
-    """
-
-    def __init__(
-        self,
-        size_t target_index,
-        int score,
-        int query_end,
-        int target_end,
-    ):
-        super().__init__(target_index, score)
-        self._result.endLocationQuery = query_end
-        self._result.endLocationTarget = target_end
-
-    def __repr__(self):
-        cdef str ty = type(self).__name__
-        return (
-            f"{ty}({self.target_index}, "
-            f"score={self.score!r}, "
-            f"query_end={self.query_end!r}, "
-            f"target_end={self.target_end!r})"
-        )
-
-    @property
-    def query_end(self):
-        """`int`: The coordinate where the alignment ends in the query.
-        """
-        assert self._result.endLocationQuery >= 0
-        return self._result.endLocationQuery
-
-    @property
-    def target_end(self):
-        """`int`: The coordinate where the alignment ends in the target.
-        """
-        assert self._result.endLocationTarget >= 0
-        return self._result.endLocationTarget
-
-
-
-cdef class FullResult(EndResult):
-    """The results of a search in ``full`` mode.
-    """
-
-    def __cinit__(self):
-        self._query_length = -1
-        self._target_length = -1
-
-    def __init__(
-        self,
-        size_t target_index,
-        int score,
-        int query_end,
-        int target_end,
-        int query_start,
-        int target_start,
-        int query_length,
-        int target_length,
-        str alignment not None,
-    ):
-        super().__init__(target_index, score, query_end, target_end)
-        self._query_length = query_length
-        self._target_length = target_length
-        self._result.startLocationQuery = query_start
-        self._result.startLocationTarget = target_start
-        self._result.alignmentLength = len(alignment)
-        self._result.alignment = <unsigned char*> PyMem_Realloc(self._result.alignment, self._result.alignmentLength * sizeof(unsigned char))
-        for i, x in enumerate(alignment):
-            self._result.alignment[i] = _OPAL_ALIGNMENT_OPERATION[x]
-
-    def __repr__(self):
-        cdef str ty = type(self).__name__
-        return (
-            f"{ty}({self.target_index}, "
-            f"score={self.score!r}, "
-            f"query_end={self.query_end!r}, "
-            f"target_end={self.target_end!r}, "
-            f"query_start={self.query_start!r}, "
-            f"target_start={self.target_start!r}, "
-            f"target_start={self.target_start!r}, "
-            f"query_length={self.query_length!r}, "
-            f"target_length={self.target_length!r}, "
-            f"alignment={self.alignment!r})"
-        )
-
-    @property
-    def query_start(self):
-        """`int`: The coordinate where the alignment starts in the query.
-        """
-        assert self._result.startLocationQuery >= 0
-        return self._result.startLocationQuery
-
-    @property
-    def target_start(self):
-        """`int`: The coordinate where the alignment starts in the target.
-        """
-        assert self._result.startLocationTarget >= 0
-        return self._result.startLocationTarget
-
-    @property
-    def query_length(self):
-        """`int`: The complete length of the query sequence.
-
-        .. versionadded:: 0.2.0
-
-        """
-        assert self._query_length >= 0
-        return self._query_length
-
-    @property
-    def target_length(self):
-        """`int`: The complete length of the target sequence.
-
-        .. versionadded:: 0.2.0
-
-        """
-        assert self._target_length >= 0
-        return self._target_length
-
-    @property
-    def alignment(self):
-        """`str`: A string used by Opal to encode alignments.
-        """
-        assert self._result.alignmentLength >= 0
-
-        cdef bytearray        ali
-        cdef unsigned char[:] view
-        cdef Py_UCS4[4]       symbols = ['M', 'D', 'I', 'X']
-
-        ali = bytearray(self._result.alignmentLength)
-        view = ali
-        for i in range(self._result.alignmentLength):
-            view[i] = symbols[self._result.alignment[i]]
-        return ali.decode('ascii')
-
-    cpdef str cigar(self):
-        """Create a CIGAR string representing the alignment.
-
-        Returns:
-            `str`: A CIGAR string in SAM format describing the alignment.
-
-        Example:
-            >>> aligner = Aligner()
-            >>> db = Database(["AACCGCTG"])
-            >>> hit = aligner.align("ACCTCG", db, mode="full", algorithm="nw")[0]
-            >>> hit.cigar()
-            '1D5M1D1M'
-
-        """
-        cdef ssize_t       i
-        cdef unsigned char symbol
-        cdef unsigned char current
-        cdef size_t        count
-        cdef Py_UCS4[3]    symbols = ['M', 'I', 'D']
-        cdef list          chunks  = []
-
-        if self._result.alignmentLength == 0 or self._result.alignment is None:
-            return None
-
-        count = 0
-        current = self._result.alignment[0] % 3
-        for i in range(self._result.alignmentLength):
-            symbol = self._result.alignment[i] % 3
-            if symbol == current:
-                count += 1
-            else:
-                chunks.append(str(count))
-                chunks.append(symbols[current])
-                current = symbol
-                count = 1
-        chunks.append(str(count))
-        chunks.append(symbols[current])
-
-        return "".join(chunks)
-
-    cpdef float identity(self):
-        """Compute the identity of the alignment.
-
-        Returns:
-            `float`: The identity of the alignment as a fraction
-            (between *0* and *1*).
-
-        """
-        assert self._result.alignment is not NULL
-        cdef size_t         length = self._result.alignmentLength
-        cdef unsigned char* ali    = self._result.alignment
-        cdef int matches    = count(&ali[0], &ali[length], opal.OPAL_ALIGN_MATCH)
-        cdef int mismatches = count(&ali[0], &ali[length], opal.OPAL_ALIGN_MISMATCH)
-        return (<float> matches) / (<float> (matches + mismatches))
-
-    cpdef float coverage(self, str reference="query"):
-        """Compute the coverage of the alignment.
-
-        Arguments:
-            reference (`str`): The reference sequence to take to compute
-                the coverage: either ``query`` or ``target``.
-
-        Returns:
-            `float`: The coverage of the alignment against the
-            reference, as a fraction (between *0* and *1*).
-
-        Example:
-            If we align the test sequences from the Opal dataset with
-            Needleman-Wunsch, we get the following alignment::
-
-                T: AACCGCTG (0 - 7)
-                Q: -ACCTC-G (0 - 5)
-
-            The query coverage will be 100%, but the target coverage will
-            only be 87.5%, since the first letter of the target is not
-            covered by the alignment::
-
-                >>> aligner = Aligner()
-                >>> db = Database(["AACCGCTG"])
-                >>> hit = aligner.align("ACCTCG", db, mode="full", algorithm="nw")[0]
-                >>> hit.coverage("query")
-                1.0
-                >>> hit.coverage("target")
-                0.875
-
-        .. versionadded:: 0.2.0
-
-        """
-        assert self._result.alignment is not NULL
-
-        cdef ssize_t i
-        cdef ssize_t length
-        cdef ssize_t reflength
-        cdef char    operation
-
-        # compute alignment and total lengths on reference sequence
-        if reference == "query":
-            reflength = self._query_length
-            length = self._result.endLocationQuery + 1 - self._result.startLocationQuery
-            operation = opal.OPAL_ALIGN_DEL
-        elif reference == "target":
-            reflength = self._target_length
-            length = self._result.endLocationTarget + 1 - self._result.startLocationTarget
-            operation = opal.OPAL_ALIGN_INS
-        else:
-            raise ValueError(f"Invalid coverage reference: {reference!r}")
-
-        # trim alignment sides if they correspond to a gap in the reference
-        for i in range(self._result.alignmentLength):
-            if self._result.alignment[i] == operation:
-                length -= 1
-            else:
-                break
-        for i in reversed(range(self._result.alignmentLength)):
-            if self._result.alignment[i] == operation:
-                length -= 1
-            else:
-                break
-
-        # compute the final coverage
-        return 0.0 if length < 0 else (<float> length) / reflength
-
+# --- Sequence storage ---------------------------------------------------------
 
 cdef class Database:
     """A database of target sequences.
@@ -1030,18 +732,324 @@ cdef class Database:
         return subdb
 
 
-# --- Aligner
+
+
+
+
+# --- Aligner ------------------------------------------------------------------
+
+cdef class ScoreResult:
+    """The results of a search in ``score`` mode.
+    """
+
+    def __cinit__(self):
+        self._target_index = -1
+        self._result.scoreSet = 0
+        self._result.startLocationQuery = -1
+        self._result.startLocationTarget = -1
+        self._result.endLocationQuery = -1
+        self._result.endLocationTarget = -1
+        self._result.alignmentLength = 0
+        self._result.alignment = NULL
+
+    def __dealloc__(self):
+        PyMem_Free(self._result.alignment)
+
+    def __init__(self, size_t target_index, int score):
+        self._target_index = target_index
+        self._result.score = score
+        self._result.scoreSet = True
+
+    def __repr__(self):
+        cdef str ty = type(self).__name__
+        return f"{ty}({self.target_index}, score={self.score!r})"
+
+    @property
+    def target_index(self):
+        """`int`: The index of the target in the database.
+        """
+        assert self._target_index >= 0
+        return self._target_index
+
+    @property
+    def score(self):
+        """`int`: The score of the alignment.
+        """
+        assert self._result.scoreSet
+        return self._result.score
+
+
+cdef class EndResult(ScoreResult):
+    """The results of a search in ``end`` mode.
+    """
+
+    def __init__(
+        self,
+        size_t target_index,
+        int score,
+        int query_end,
+        int target_end,
+    ):
+        super().__init__(target_index, score)
+        self._result.endLocationQuery = query_end
+        self._result.endLocationTarget = target_end
+
+    def __repr__(self):
+        cdef str ty = type(self).__name__
+        return (
+            f"{ty}({self.target_index}, "
+            f"score={self.score!r}, "
+            f"query_end={self.query_end!r}, "
+            f"target_end={self.target_end!r})"
+        )
+
+    @property
+    def query_end(self):
+        """`int`: The coordinate where the alignment ends in the query.
+        """
+        assert self._result.endLocationQuery >= 0
+        return self._result.endLocationQuery
+
+    @property
+    def target_end(self):
+        """`int`: The coordinate where the alignment ends in the target.
+        """
+        assert self._result.endLocationTarget >= 0
+        return self._result.endLocationTarget
+
+
+
+cdef class FullResult(EndResult):
+    """The results of a search in ``full`` mode.
+    """
+
+    def __cinit__(self):
+        self._query_length = -1
+        self._target_length = -1
+
+    def __init__(
+        self,
+        size_t target_index,
+        int score,
+        int query_end,
+        int target_end,
+        int query_start,
+        int target_start,
+        int query_length,
+        int target_length,
+        str alignment not None,
+    ):
+        super().__init__(target_index, score, query_end, target_end)
+        self._query_length = query_length
+        self._target_length = target_length
+        self._result.startLocationQuery = query_start
+        self._result.startLocationTarget = target_start
+        self._result.alignmentLength = len(alignment)
+        self._result.alignment = <unsigned char*> PyMem_Realloc(self._result.alignment, self._result.alignmentLength * sizeof(unsigned char))
+        for i, x in enumerate(alignment):
+            self._result.alignment[i] = _OPAL_ALIGNMENT_OPERATION[x]
+
+    def __repr__(self):
+        cdef str ty = type(self).__name__
+        return (
+            f"{ty}({self.target_index}, "
+            f"score={self.score!r}, "
+            f"query_end={self.query_end!r}, "
+            f"target_end={self.target_end!r}, "
+            f"query_start={self.query_start!r}, "
+            f"target_start={self.target_start!r}, "
+            f"target_start={self.target_start!r}, "
+            f"query_length={self.query_length!r}, "
+            f"target_length={self.target_length!r}, "
+            f"alignment={self.alignment!r})"
+        )
+
+    @property
+    def query_start(self):
+        """`int`: The coordinate where the alignment starts in the query.
+        """
+        assert self._result.startLocationQuery >= 0
+        return self._result.startLocationQuery
+
+    @property
+    def target_start(self):
+        """`int`: The coordinate where the alignment starts in the target.
+        """
+        assert self._result.startLocationTarget >= 0
+        return self._result.startLocationTarget
+
+    @property
+    def query_length(self):
+        """`int`: The complete length of the query sequence.
+
+        .. versionadded:: 0.2.0
+
+        """
+        assert self._query_length >= 0
+        return self._query_length
+
+    @property
+    def target_length(self):
+        """`int`: The complete length of the target sequence.
+
+        .. versionadded:: 0.2.0
+
+        """
+        assert self._target_length >= 0
+        return self._target_length
+
+    @property
+    def alignment(self):
+        """`str`: A string used by Opal to encode alignments.
+        """
+        assert self._result.alignmentLength >= 0
+
+        cdef bytearray        ali
+        cdef unsigned char[:] view
+        cdef Py_UCS4[4]       symbols = ['M', 'D', 'I', 'X']
+
+        ali = bytearray(self._result.alignmentLength)
+        view = ali
+        for i in range(self._result.alignmentLength):
+            view[i] = symbols[self._result.alignment[i]]
+        return ali.decode('ascii')
+
+    cpdef str cigar(self):
+        """Create a CIGAR string representing the alignment.
+
+        Returns:
+            `str`: A CIGAR string in SAM format describing the alignment.
+
+        Example:
+            >>> aligner = Aligner()
+            >>> db = Database(["AACCGCTG"])
+            >>> hit = aligner.align("ACCTCG", db, mode="full", algorithm="nw")[0]
+            >>> hit.cigar()
+            '1D5M1D1M'
+
+        """
+        cdef ssize_t       i
+        cdef unsigned char symbol
+        cdef unsigned char current
+        cdef size_t        count
+        cdef Py_UCS4[3]    symbols = ['M', 'I', 'D']
+        cdef list          chunks  = []
+
+        if self._result.alignmentLength == 0 or self._result.alignment is None:
+            return None
+
+        count = 0
+        current = self._result.alignment[0] % 3
+        for i in range(self._result.alignmentLength):
+            symbol = self._result.alignment[i] % 3
+            if symbol == current:
+                count += 1
+            else:
+                chunks.append(str(count))
+                chunks.append(symbols[current])
+                current = symbol
+                count = 1
+        chunks.append(str(count))
+        chunks.append(symbols[current])
+
+        return "".join(chunks)
+
+    cpdef float identity(self):
+        """Compute the identity of the alignment.
+
+        Returns:
+            `float`: The identity of the alignment as a fraction
+            (between *0* and *1*).
+
+        """
+        assert self._result.alignment is not NULL
+        cdef size_t         length = self._result.alignmentLength
+        cdef unsigned char* ali    = self._result.alignment
+        cdef int matches    = count(&ali[0], &ali[length], opal.OPAL_ALIGN_MATCH)
+        cdef int mismatches = count(&ali[0], &ali[length], opal.OPAL_ALIGN_MISMATCH)
+        return (<float> matches) / (<float> (matches + mismatches))
+
+    cpdef float coverage(self, str reference="query"):
+        """Compute the coverage of the alignment.
+
+        Arguments:
+            reference (`str`): The reference sequence to take to compute
+                the coverage: either ``query`` or ``target``.
+
+        Returns:
+            `float`: The coverage of the alignment against the
+            reference, as a fraction (between *0* and *1*).
+
+        Example:
+            If we align the test sequences from the Opal dataset with
+            Needleman-Wunsch, we get the following alignment::
+
+                T: AACCGCTG (0 - 7)
+                Q: -ACCTC-G (0 - 5)
+
+            The query coverage will be 100%, but the target coverage will
+            only be 87.5%, since the first letter of the target is not
+            covered by the alignment::
+
+                >>> aligner = Aligner()
+                >>> db = Database(["AACCGCTG"])
+                >>> hit = aligner.align("ACCTCG", db, mode="full", algorithm="nw")[0]
+                >>> hit.coverage("query")
+                1.0
+                >>> hit.coverage("target")
+                0.875
+
+        .. versionadded:: 0.2.0
+
+        """
+        assert self._result.alignment is not NULL
+
+        cdef ssize_t i
+        cdef ssize_t length
+        cdef ssize_t reflength
+        cdef char    operation
+
+        # compute alignment and total lengths on reference sequence
+        if reference == "query":
+            reflength = self._query_length
+            length = self._result.endLocationQuery + 1 - self._result.startLocationQuery
+            operation = opal.OPAL_ALIGN_DEL
+        elif reference == "target":
+            reflength = self._target_length
+            length = self._result.endLocationTarget + 1 - self._result.startLocationTarget
+            operation = opal.OPAL_ALIGN_INS
+        else:
+            raise ValueError(f"Invalid coverage reference: {reference!r}")
+
+        # trim alignment sides if they correspond to a gap in the reference
+        for i in range(self._result.alignmentLength):
+            if self._result.alignment[i] == operation:
+                length -= 1
+            else:
+                break
+        for i in reversed(range(self._result.alignmentLength)):
+            if self._result.alignment[i] == operation:
+                length -= 1
+            else:
+                break
+
+        # compute the final coverage
+        return 0.0 if length < 0 else (<float> length) / reflength
 
 cdef class Aligner:
+    """The Opal aligner.
+    """
 
     _DEFAULT_SCORE_MATRIX = ScoreMatrix.aa()
+    _DEFAULT_GAP_OPEN = 3
+    _DEFAULT_GAP_EXTEND = 1
 
     def __init__(
         self, 
         ScoreMatrix score_matrix = None,
         *,
-        int gap_open = 3, 
-        int gap_extend = 1, 
+        int gap_open = _DEFAULT_GAP_OPEN, 
+        int gap_extend = _DEFAULT_GAP_EXTEND, 
     ):
         """Create a new Aligner with the given parameters.
 
@@ -1074,6 +1082,16 @@ cdef class Aligner:
             self._search = opalSearchDatabaseNEON
         if self._search is NULL:
             raise RuntimeError("no supported SIMD backend available")
+
+    def __repr__(self):
+        args = []
+        if self.score_matrix != self._DEFAULT_SCORE_MATRIX:
+            args.append(f"{self.score_matrix!r}")
+        if self.gap_open != self._DEFAULT_GAP_OPEN:
+            args.append(f"gap_open={self.gap_open!r}")
+        if self.gap_extend != self._DEFAULT_GAP_EXTEND:
+            args.append(f"gap_extend={self.gap_extend!r}")
+        return f"{type(self).__name__}({', '.join(args)})"
 
     def align(
         self, 

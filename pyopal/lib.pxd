@@ -84,20 +84,7 @@ cdef class ScoreMatrix:
     cdef Py_ssize_t        _shape[2]
     cdef readonly Alphabet alphabet
 
-cdef class ScoreResult:
-    cdef ssize_t          _target_index
-    cdef OpalSearchResult _result
-
-cdef class EndResult(ScoreResult):
-    pass
-
-cdef class FullResult(EndResult):
-    cdef int _query_length
-    cdef int _target_length
-
-    cpdef str cigar(self)
-    cpdef float identity(self)
-    cpdef float coverage(self, str reference=*)
+# --- Sequence storage ---------------------------------------------------------
 
 cdef class Database:
     cdef readonly SharedMutex      lock
@@ -117,6 +104,23 @@ cdef class Database:
 
     cpdef Database mask(self, object bitmask)
     cpdef Database extract(self, object indices)
+
+# --- Aligner ------------------------------------------------------------------
+
+cdef class ScoreResult:
+    cdef ssize_t          _target_index
+    cdef OpalSearchResult _result
+
+cdef class EndResult(ScoreResult):
+    pass
+
+cdef class FullResult(EndResult):
+    cdef int _query_length
+    cdef int _target_length
+
+    cpdef str cigar(self)
+    cpdef float identity(self)
+    cpdef float coverage(self, str reference=*)
 
 cdef class Aligner:
     cdef readonly Alphabet    alphabet
