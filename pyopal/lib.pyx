@@ -16,6 +16,7 @@ from libc.string cimport memset, memcpy
 from libc.stdint cimport uint32_t
 from libc.limits cimport UCHAR_MAX
 from libcpp cimport bool
+from libcpp.numeric cimport accumulate
 from libcpp.vector cimport vector
 from libcpp.memory cimport shared_ptr
 
@@ -471,6 +472,15 @@ cdef class BaseDatabase:
         with self.lock.read:
             return self._pointers.size()
 
+    @property
+    def total_length(self):
+        """`int`: The total length of the database.
+        """
+        cdef int total = 0
+        with nogil:
+            total = accumulate(self._lengths.begin(), self._lengths.end(), 0)
+        return total
+
     # --- Encoding -------------------------------------------------------------
 
     cdef digit_t* _encode(self, object sequence) except *:
@@ -922,7 +932,7 @@ cdef class FullResult(EndResult):
                 self.target_length,
                 self.alignment
             )
-        0
+        )
 
     @property
     def query_start(self):
@@ -1225,7 +1235,7 @@ cdef class Aligner:
         cdef seq_t                     query
         cdef int                       length      = len(sequence)
 
-         # validate parameters
+        # validate parameters
         if mode in _OPAL_SEARCH_MODES:
             _mode = _OPAL_SEARCH_MODES[mode]
             result_type = _OPAL_SEARCH_RESULTS[mode]

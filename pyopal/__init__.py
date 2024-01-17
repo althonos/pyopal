@@ -3,6 +3,19 @@ from ._version import __version__
 
 __author__ = "Martin Larralde <martin.larralde@embl.de>"
 __license__ = "MIT"
+__all__ = [
+    "Alphabet",
+    "Aligner",
+    "Database",
+    "ScoreMatrix",
+    "ScoreResult",
+    "EndResult",
+    "FullResult",
+    "align",
+]
+
+import os
+import multiprocessing.pool
 
 from . import lib
 from .lib import (
@@ -29,3 +42,45 @@ if __doc__ is not None:
     """.format(
         __version__
     )
+
+
+def align(
+    query,
+    database,
+    score_matrix = None,
+    *,
+    gap_open = 3,
+    gap_extend = 1,
+    mode = "score",
+    overflow = "buckets",
+    algorithm = "sw",
+    threads = 0,
+):
+
+    if threads == 0:
+        threads = os.cpu_count()
+
+    if score_matrix is None:
+        score_matrix = ScoreMatrix.aa()
+
+    if not isinstance(database, Database):
+        database = Database(database, score_matrix.alphabet)
+
+    aligner = Aligner(
+        score_matrix, 
+        gap_open=gap_open, 
+        gap_extend=gap_extend,
+    )
+    
+    if threads == 1:
+        return aligner.align(
+            query, 
+            database, 
+            mode=mode, 
+            overflow=overflow, 
+            algorithm=algorithm
+        )
+
+
+
+
