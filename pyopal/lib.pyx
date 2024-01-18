@@ -446,10 +446,11 @@ cdef class BaseDatabase:
     """The base class for views of database sequences.
 
     To allow reusing the rest of the code, this class can be inherited
-    from a Cython extension and used with `Aligner.align`. It only
-    requires to fill the vector of sequence pointers and the vector
-    of lengths expected by Opal, and is agnostic of how the sequences
-    are actually stored.
+    from a Cython extension and used with `Aligner.align`. Child classes
+    only need to implement methods to obtain the size of the database, the
+    lengths of the sequences, and the sequences data. Use `~pyopal.Database`
+    for a basic implementation using C++ shared pointers to store the
+    sequences.
 
     Attributes:
         alphabet (`~pyopal.Alphabet`): The alphabet object used for encoding
@@ -465,31 +466,36 @@ cdef class BaseDatabase:
 
     def __cinit__(self):
         self.lock = SharedMutex()
-        self._lengths.clear()
-        self._pointers.clear()
 
     def __init__(self, object sequences = (), Alphabet alphabet = None):
         self.alphabet = self._DEFAULT_ALPHABET if alphabet is None else alphabet
         if sequences:
             raise TypeError("cannot create a `BaseDatabase` with sequences")
 
-    def __len__(self):
-        with self.lock.read:
-            return self._pointers.size()
-
     @property
     def lengths(self):
         """`list` of `int`: The length of each sequence in the database.
         """
-        return list(self._lengths)
+        cdef size_t size
+        cdef int*   lengths
+        with self.lock.read:
+            size = self.get_size()
+            lengths = self.get_lengths()
+            return [ lengths[i] for i in range(size) ]
 
     @property
     def total_length(self):
         """`int`: The total length of the database.
         """
-        cdef int total = 0
-        with nogil:
-            total = accumulate(self._lengths.begin(), self._lengths.end(), 0)
+        cdef size_t size
+        cdef int*   lengths
+        cdef int    total   = 0
+        with self.lock.read:
+            size = self.get_size()
+            lengths = self.get_lengths()
+            if size > 0:
+                with nogil:
+                    total = accumulate(&lengths[0], &lengths[size], 0)
         return total
 
     # --- Encoding -------------------------------------------------------------
@@ -516,22 +522,22 @@ cdef class BaseDatabase:
 
         return dst
 
-    cdef str _decode(self, digit_t* encoded, int length) except *:
-        view = PyMemoryView_FromMemory(<char*> encoded, length, PyBUF_READ)
-        return self.alphabet.decode(view)
-
     # --- Database interface ---------------------------------------------------
 
-    cdef digit_t** get_sequences(self) noexcept:
-        return self._pointers.data()
+    cdef digit_t** get_sequences(self) except NULL:
+        raise NotImplementedError("BaseDatabase.get_sequences")
 
-    cdef int* get_lengths(self) noexcept:
-        return self._lengths.data()
+    cdef int* get_lengths(self) except NULL:
+        raise NotImplementedError("BaseDatabase.get_lengths")
 
     cdef size_t get_size(self) noexcept:
-        return self._pointers.size()
+        return 0
 
     # --- Sequence interface ---------------------------------------------------
+
+    def __len__(self):
+        with self.lock.read:
+            return self.get_size()
 
     def __getitem__(self, ssize_t index):
         cdef ssize_t   i
@@ -582,6 +588,17 @@ cdef class Database(BaseDatabase):
 
     def __reduce__(self):
         return (type(self), ((), self.alphabet), None, iter(self))
+
+    # --- Database interface ---------------------------------------------------
+
+    cdef digit_t** get_sequences(self) except NULL:
+        return self._pointers.data()
+
+    cdef int* get_lengths(self) except NULL:
+        return self._lengths.data()
+
+    cdef size_t get_size(self) noexcept:
+        return self._pointers.size()
 
     # --- Sequence interface ---------------------------------------------------
 
@@ -1333,8 +1350,8 @@ cdef class Aligner:
             # check slice is valid
             if end < start:
                 raise IndexError("database slice end is lower than start")
-            if end > database._pointers.size():
-                end = database._pointers.size()
+            if end > size:
+                end = size
             # compute size of slice
             size = 0 if end == 0 else end - start
             # Prepare list of results

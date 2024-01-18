@@ -89,18 +89,17 @@ cdef class ScoreMatrix:
 cdef class BaseDatabase:
     cdef readonly SharedMutex      lock
     cdef readonly Alphabet         alphabet
-    cdef          vector[digit_t*] _pointers
-    cdef          vector[int]      _lengths
 
-    cdef digit_t** get_sequences(self) noexcept
-    cdef int*      get_lengths(self) noexcept
+    cdef digit_t** get_sequences(self) except NULL
+    cdef int*      get_lengths(self) except NULL
     cdef size_t    get_size(self) noexcept
 
     cdef digit_t* _encode(self, object sequence) except *
-    cdef str _decode(self, digit_t* encoded, int length) except *
 
 cdef class Database(BaseDatabase):
-    cdef          vector[seq_t]    _sequences
+    cdef vector[seq_t]    _sequences
+    cdef vector[digit_t*] _pointers
+    cdef vector[int]      _lengths
 
     cpdef void clear(self) except *
     cpdef void extend(self, object sequences) except *
