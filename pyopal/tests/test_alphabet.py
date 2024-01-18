@@ -31,6 +31,12 @@ class TestAlphabet(unittest.TestCase):
         with self.assertRaises(ValueError):
             alphabet = pyopal.Alphabet("A[]C")
 
+    def test_repr(self):
+        alphabet = pyopal.Alphabet()
+        self.assertEqual(repr(alphabet), "Alphabet()")
+        alphabet = pyopal.Alphabet("ATGC")
+        self.assertEqual(repr(alphabet), "Alphabet('ATGC')")
+
     def test_encode_str(self):
         alphabet = pyopal.Alphabet("ATGC")
 

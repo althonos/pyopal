@@ -214,7 +214,7 @@ cdef class Alphabet:
         return type(self), (self.letters,)
 
     def __repr__(self):
-        if self.letters == self.__DEFAULT_LETTERS:
+        if self.letters == self._DEFAULT_LETTERS:
             return f"{type(self).__name__}()"
         return f"{type(self).__name__}({self.letters!r})"
 
@@ -923,7 +923,6 @@ cdef class FullResult(EndResult):
             f"query_end={self.query_end!r}, "
             f"target_end={self.target_end!r}, "
             f"query_start={self.query_start!r}, "
-            f"target_start={self.target_start!r}, "
             f"target_start={self.target_start!r}, "
             f"query_length={self.query_length!r}, "
             f"target_length={self.target_length!r}, "
