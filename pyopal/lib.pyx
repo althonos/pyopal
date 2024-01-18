@@ -520,25 +520,42 @@ cdef class BaseDatabase:
         view = PyMemoryView_FromMemory(<char*> encoded, length, PyBUF_READ)
         return self.alphabet.decode(view)
 
+    # --- Database interface ---------------------------------------------------
+
+    cdef digit_t** get_sequences(self) noexcept:
+        return self._pointers.data()
+
+    cdef int* get_lengths(self) noexcept:
+        return self._lengths.data()
+
+    cdef size_t get_size(self) noexcept:
+        return self._pointers.size()
+
     # --- Sequence interface ---------------------------------------------------
 
     def __getitem__(self, ssize_t index):
-        cdef ssize_t i
-        cdef size_t  size
-        cdef object  view
-        cdef ssize_t index_   = index
+        cdef ssize_t   i
+        cdef object    view
+        cdef size_t    size     = 0
+        cdef int*      lengths  = NULL
+        cdef digit_t** sequences  = NULL
+        cdef ssize_t   index_   = index
 
         with self.lock.read:
-            size = self._pointers.size()
+            size = self.get_size()
+            sequences = self.get_sequences()
+            lengths = self.get_lengths()
 
             if index_ < 0:
                 index_ += size
             if index_ < 0 or (<size_t> index_) >= size:
                 raise IndexError(index)
 
-            assert index_ < self._pointers.size()
-            assert self._pointers[index_] != NULL
-            return self._decode(self._pointers[index_], self._lengths[index_])
+            #assert index_ < self._pointers.size()
+            #assert self._pointers[index_] != NULL
+
+            view = PyMemoryView_FromMemory(<char*> sequences[index_], lengths[index_], PyBUF_READ)
+            return self.alphabet.decode(view)
 
 
 cdef class Database(BaseDatabase):
@@ -1279,8 +1296,10 @@ cdef class Aligner:
         cdef type                      result_type
         cdef list                      results
         cdef vector[OpalSearchResult*] results_raw
-        cdef size_t                    size
         cdef seq_t                     encoded
+        cdef size_t                    size
+        cdef int*                      lengths     = NULL
+        cdef digit_t**                 sequences   = NULL
         cdef int                       length      = len(query)
 
         # validate parameters
@@ -1307,6 +1326,10 @@ cdef class Aligner:
 
         # search database
         with database.lock.read:
+            # get pointers from database using `BaseDatabase` API
+            size = database.get_size()
+            sequences = database.get_sequences()
+            lengths = database.get_lengths()
             # check slice is valid
             if end < start:
                 raise IndexError("database slice end is lower than start")
@@ -1329,9 +1352,9 @@ cdef class Aligner:
                     retcode = self._search(
                         encoded.get(),
                         length,
-                        &database._pointers.at(start),
+                        &sequences[start],
                         size,
-                        &database._lengths.at(start),
+                        &lengths[start],
                         self.gap_open,
                         self.gap_extend,
                         self.score_matrix._matrix.data(),
@@ -1348,7 +1371,7 @@ cdef class Aligner:
                 if _mode == opal.OPAL_SEARCH_ALIGNMENT:
                     full_result = results[i]
                     full_result._query_length = length
-                    full_result._target_length = database._lengths[j]
+                    full_result._target_length = lengths[j]
 
         # check the alignment worked and return results
         if retcode == opal.OPAL_ERR_NO_SIMD_SUPPORT:

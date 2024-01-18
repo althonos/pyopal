@@ -92,6 +92,10 @@ cdef class BaseDatabase:
     cdef          vector[digit_t*] _pointers
     cdef          vector[int]      _lengths
 
+    cdef digit_t** get_sequences(self) noexcept
+    cdef int*      get_lengths(self) noexcept
+    cdef size_t    get_size(self) noexcept
+
     cdef digit_t* _encode(self, object sequence) except *
     cdef str _decode(self, digit_t* encoded, int length) except *
 
