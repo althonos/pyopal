@@ -77,10 +77,6 @@ class TestFullResult(unittest.TestCase):
         self.assertEqual(result.target_length, 100)
         self.assertEqual(result.alignment, "M"*10)
 
-    def test_repr(self):
-        result = pyopal.EndResult(target_index=10, score=30, query_end=10, target_end=20)
-        self.assertEqual(repr(result), "EndResult(10, score=30, query_end=10, target_end=20)")
-
     def test_pickle(self):
         r1 = pyopal.FullResult(10, score=30, query_end=10, target_end=20, query_start=0, target_start=10, query_length=100, target_length=100, alignment="M"*10)
         r2 = pickle.loads(pickle.dumps(r1))

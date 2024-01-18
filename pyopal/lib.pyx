@@ -836,7 +836,7 @@ cdef class ScoreResult:
     def __eq__(self, object other):
         if not isinstance(other, ScoreResult):
             return NotImplemented
-        return self.__reduce__() == other.__reduce__()
+        return self.__reduce__()[1] == other.__reduce__()[1]
 
     @property
     def target_index(self):
@@ -1186,6 +1186,11 @@ cdef class Aligner:
 
     def __reduce__(self):
         return type(self), (self.score_matrix, self.gap_open, self.gap_extend)
+
+    def __eq__(self, object other):
+        if not isinstance(other, Aligner):
+            return NotImplemented
+        return self.__reduce__()[1] == other.__reduce__()[1]
 
     def align(
         self,
