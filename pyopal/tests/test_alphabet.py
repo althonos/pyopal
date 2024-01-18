@@ -15,6 +15,26 @@ class TestAlphabet(unittest.TestCase):
         self.assertEqual(len(alphabet), 4)
         self.assertEqual(len(alphabet), len(alphabet.letters))
 
+    def test_contains(self):
+        alphabet = pyopal.Alphabet("ATGC")
+        self.assertIn("A", alphabet)        
+        self.assertIn("T", alphabet)        
+        self.assertNotIn("X", alphabet)     
+
+    def test_getitem(self):
+        alphabet = pyopal.Alphabet("ATGC")
+        self.assertEqual(alphabet[0], "A")
+        self.assertEqual(alphabet[2], "G")
+        self.assertEqual(alphabet[-1], "C")
+        self.assertEqual(alphabet[-2], "G")
+
+        with self.assertRaises(IndexError):
+            _c = alphabet[-5]
+        with self.assertRaises(IndexError):
+            _c = alphabet[4]
+        with self.assertRaises(IndexError):
+            _c = alphabet[5]
+
     def test_letters(self):
         alphabet = pyopal.Alphabet("ATGC")
         self.assertEqual(alphabet.letters, "ATGC")

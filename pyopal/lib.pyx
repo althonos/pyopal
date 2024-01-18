@@ -208,7 +208,12 @@ cdef class Alphabet:
         return item in self.letters
 
     def __getitem__(self, ssize_t index):
-        return self.letters[index]
+        cdef ssize_t index_ = index
+        if index_ < 0:
+            index_ += self.length
+        if index_ < 0 or index_ >= self.length:
+            raise IndexError(index)
+        return self.letters[<size_t> index_]
 
     def __reduce__(self):
         return type(self), (self.letters,)
