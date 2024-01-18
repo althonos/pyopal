@@ -43,6 +43,13 @@ class TestDatabase(unittest.TestCase):
         self.assertEqual(database[-2], sequences[-2])
         self.assertEqual(database[-3], sequences[-3])
 
+    def test_getitem_slice(self):
+        sequences = ["ATGC", "ATTC", "TTCG", "TTAT", "AAAC"]
+        database = pyopal.Database(sequences)
+        self.assertEqual(list(database[:2]), sequences[:2])
+        self.assertEqual(list(database[1:4:2]), sequences[1:4:2])
+        self.assertEqual(list(database[1::-1]), sequences[1::-1])
+
     def test_getitem_index_error(self):
         sequences = ["ATGC", "ATTC", "TTCG"]
         database = pyopal.Database(sequences)

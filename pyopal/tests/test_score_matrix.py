@@ -55,3 +55,18 @@ class TestScoreMatrix(unittest.TestCase):
                     [0, 0, 0],
                 ]
             )
+
+    def test_eq(self):
+        sm1 = pyopal.ScoreMatrix.aa("BLOSUM50")
+        sm2 = pyopal.ScoreMatrix.aa("BLOSUM50")
+        sm3 = pyopal.ScoreMatrix.aa("BLOSUM62")
+        self.assertEqual(sm1, sm1)
+        self.assertEqual(sm1, sm2)
+        self.assertNotEqual(sm1, sm3)
+        self.assertNotEqual(sm1, 12)
+
+    def test_pickle(self):
+        sm1 = pyopal.ScoreMatrix.aa()
+        sm2 = pickle.loads(pickle.dumps(sm1))
+        self.assertEqual(sm1.alphabet, sm2.alphabet)
+        self.assertEqual(sm1.matrix, sm2.matrix)

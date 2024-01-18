@@ -35,9 +35,30 @@ class TestAlphabet(unittest.TestCase):
         with self.assertRaises(IndexError):
             _c = alphabet[5]
 
+    def test_str(self):
+        alphabet = pyopal.Alphabet("ATGC")
+        self.assertEqual(alphabet.letters, "ATGC")
+        self.assertEqual(str(alphabet), "ATGC")
+
+    def test_eq(self):
+        a1 = pyopal.Alphabet("ATGC")
+        a2 = pyopal.Alphabet("ATGC")
+        a3 = pyopal.Alphabet("TCGA")
+        self.assertEqual(a1, a1)
+        self.assertEqual(a1, a1.letters)
+        self.assertEqual(a1, a2)
+        self.assertNotEqual(a1, a3)
+        self.assertNotEqual(a1, 10)
+
     def test_letters(self):
         alphabet = pyopal.Alphabet("ATGC")
         self.assertEqual(alphabet.letters, "ATGC")
+
+    def test_pickle(self):
+        a1 = pyopal.Alphabet("ATGC")
+        a2 = pickle.loads(pickle.dumps(a1))
+        self.assertEqual(a1.letters, a2.letters)
+        self.assertEqual(a1, a2)
 
     def test_init_error_duplicate_letters(self):
         with self.assertRaises(ValueError):

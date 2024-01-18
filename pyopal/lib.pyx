@@ -833,6 +833,11 @@ cdef class ScoreResult:
     def __reduce__(self):
         return type(self), (self.target_index, self.score)
 
+    def __eq__(self, object other):
+        if not isinstance(other, ScoreResult):
+            return NotImplemented
+        return self.__reduce__() == other.__reduce__()
+
     @property
     def target_index(self):
         """`int`: The index of the target in the database.
