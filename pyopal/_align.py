@@ -2,12 +2,6 @@ import contextlib
 import functools
 import multiprocessing.pool
 import os
-import typing
-
-try:
-    from typing import Literal
-except ImportError:
-    from typing_extensions import Literal  # type: ignore
 
 from .lib import (
     Aligner,
@@ -19,66 +13,30 @@ from .lib import (
     EndResult,
 )
 
-ALIGN_MODE = Literal["score", "end", "full"]
-ALIGN_OVERFLOW = Literal["simple", "buckets"]
-ALIGN_ALGORITHM = Literal["nw", "hw", "ov", "sw"]
-
-T = typing.TypeVar("T")
-
 @contextlib.contextmanager
-def nullcontext(enter_result: T) -> typing.Iterator[T]:
+def nullcontext(enter_result):
     """Return a context manager that returns its input and does nothing.
 
     Adapted from `contextlib.nullcontext` for backwards compatibility 
     with Python 3.6.
 
     """
-    yield obj
+    yield enter_result
 
-
-@typing.overload
-def align(
-    query: typing.Union[str, bytes, bytearray],
-    database: typing.Union[BaseDatabase, typing.Iterable[typing.Union[str, bytes, bytearray]]],
-    score_matrix: typing.Optional[ScoreMatrix] = None,
-    *,
-    gap_open: int = 3,
-    gap_extend: int = 1,
-    mode: Literal["end"] = "end",
-    overflow: Literal["simple", "buckets"] = "buckets",
-    algorithm: Literal["nw", "hw", "ov", "sw"] = "sw",
-    threads: int = 0,
-) -> typing.Iterator[EndResult]:
-    ...
-
-@typing.overload
-def align(
-    query: typing.Union[str, bytes, bytearray],
-    database: typing.Union[BaseDatabase, typing.Iterable[typing.Union[str, bytes, bytearray]]],
-    score_matrix: typing.Optional[ScoreMatrix] = None,
-    *,
-    gap_open: int = 3,
-    gap_extend: int = 1,
-    mode: Literal["full"] = "full",
-    overflow: Literal["simple", "buckets"] = "buckets",
-    algorithm: Literal["nw", "hw", "ov", "sw"] = "sw",
-    threads: int = 0,
-) -> typing.Iterator[FullResult]:
-    ...
 
 def align(
-    query: typing.Union[str, bytes, bytearray],
-    database: typing.Union[BaseDatabase, typing.Iterable[typing.Union[str, bytes, bytearray]]],
-    score_matrix: typing.Optional[ScoreMatrix] = None,
+    query,
+    database,
+    score_matrix = None,
     *,
-    gap_open: int = 3,
-    gap_extend: int = 1,
-    mode: Literal["score", "end", "full"] = "score",
-    overflow: Literal["simple", "buckets"] = "buckets",
-    algorithm: Literal["nw", "hw", "ov", "sw"] = "sw",
-    threads: int = 0,
-    pool: typing.Optional[multiprocessing.pool.ThreadPool] = None
-) -> typing.Iterator[ScoreResult]:
+    gap_open = 3,
+    gap_extend = 1,
+    mode = "score",
+    overflow = "buckets",
+    algorithm = "sw",
+    threads = 0,
+    pool = None
+):
     """Align the query sequence to every database sequence in parallel.
 
     Arguments:
@@ -120,7 +78,7 @@ def align(
         pool (`multiprocessing.pool.ThreadPool`): A running pool 
             instance to use for parallelization. Useful for reusing 
             the same pool across several calls of `~pyopal.align`. 
-            If `None` give, spawn a new pool based on the ``threads``
+            If `None` give, spawns a new pool based on the ``threads``
             argument.
 
     Yields:
@@ -165,12 +123,12 @@ def align(
     else:
         # 
         if pool is None:
-            _pool_context = multiprocessing.pool.ThreadPool(threads)
+            pool_context = multiprocessing.pool.ThreadPool(threads)
         else:
-            _pool_context = nullcontext(pool)
+            pool_context = nullcontext(pool)
         # cut the database in chunks of similar length
         chunk_length = len(database) // threads
-        with _pool_context as pool:
+        with pool_context as pool:
             align = functools.partial(
                 aligner.align, # type: ignore
                 query, 
