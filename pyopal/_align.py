@@ -172,7 +172,7 @@ def align(
         chunk_length = len(database) // threads
         with _pool_context as pool:
             align = functools.partial(
-                aligner._align_slice, # type: ignore
+                aligner.align, # type: ignore
                 query, 
                 database, 
                 mode=mode, 
