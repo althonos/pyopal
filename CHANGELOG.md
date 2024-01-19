@@ -6,7 +6,23 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## [Unreleased]
-[Unreleased]: https://github.com/althonos/pyopal/compare/v0.5.0-a4...HEAD
+[Unreleased]: https://github.com/althonos/pyopal/compare/v0.5.0-a5...HEAD
+
+
+## [v0.5.0-a5] - 2024-01-19
+[v0.5.0-a5]: https://github.com/althonos/pyopal/compare/v0.5.0-a4...v0.5.0-a5
+
+### Added
+- `Alphabet.__eq__` implementation comparing letters.
+- `pool` argument to `pyopal.align` to support reusing a `ThreadPool`.
+
+### Changed
+- Update `Aligner.align` to use the `BaseDatabase` Cython API.
+
+### Fixed
+- Memory leak in `Aligner.align` caused by faulty allocation of pointer array.
+- `__repr__` implementations of `Alphabet` and `FullResult`.
+- `Alphabet.__getitem__` reading past the letters buffer.
 
 
 ## [v0.5.0-a4] - 2024-01-17
