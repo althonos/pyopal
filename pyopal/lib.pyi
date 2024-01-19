@@ -1,3 +1,4 @@
+import sys
 import typing
 
 try:
@@ -146,6 +147,8 @@ class Aligner:
         mode: Literal["full"] = "full",
         overflow: ALIGN_OVERFLOW = "buckets",
         algorithm: ALIGN_ALGORITHM = "sw",
+        start: int = 0,
+        end: int = sys.maxsize,
     ) -> typing.Sequence[FullResult]: ...
     @typing.overload
     def align(
@@ -156,6 +159,8 @@ class Aligner:
         mode: Literal["end"] = "end",
         overflow: ALIGN_OVERFLOW = "buckets",
         algorithm: ALIGN_ALGORITHM = "sw",
+        start: int = 0,
+        end: int = sys.maxsize,
     ) -> typing.Sequence[EndResult]: ...
     @typing.overload
     def align(
@@ -166,4 +171,6 @@ class Aligner:
         mode: ALIGN_MODE = "score",
         overflow: ALIGN_OVERFLOW = "buckets",
         algorithm: ALIGN_ALGORITHM = "sw",
+        start: int = 0,
+        end: int = sys.maxsize,
     ) -> typing.Sequence[ScoreResult]: ...

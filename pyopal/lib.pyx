@@ -476,8 +476,8 @@ cdef class BaseDatabase:
     def lengths(self):
         """`list` of `int`: The length of each sequence in the database.
         """
-        cdef size_t size
-        cdef int*   lengths
+        cdef size_t     size
+        cdef const int* lengths
         with self.lock.read:
             size = self.get_size()
             lengths = self.get_lengths()
@@ -487,9 +487,9 @@ cdef class BaseDatabase:
     def total_length(self):
         """`int`: The total length of the database.
         """
-        cdef size_t size
-        cdef int*   lengths
-        cdef int    total   = 0
+        cdef size_t     size
+        cdef const int* lengths
+        cdef int        total   = 0
         with self.lock.read:
             size = self.get_size()
             lengths = self.get_lengths()
@@ -524,10 +524,10 @@ cdef class BaseDatabase:
 
     # --- Database interface ---------------------------------------------------
 
-    cdef digit_t** get_sequences(self) except NULL:
+    cdef const digit_t** get_sequences(self) except NULL:
         raise NotImplementedError("BaseDatabase.get_sequences")
 
-    cdef int* get_lengths(self) except NULL:
+    cdef const int* get_lengths(self) except NULL:
         raise NotImplementedError("BaseDatabase.get_lengths")
 
     cdef size_t get_size(self) noexcept:
@@ -540,12 +540,12 @@ cdef class BaseDatabase:
             return self.get_size()
 
     def __getitem__(self, ssize_t index):
-        cdef ssize_t   i
-        cdef object    view
-        cdef size_t    size     = 0
-        cdef int*      lengths  = NULL
-        cdef digit_t** sequences  = NULL
-        cdef ssize_t   index_   = index
+        cdef ssize_t         i
+        cdef object          view
+        cdef size_t          size      = 0
+        cdef const int*      lengths   = NULL
+        cdef const digit_t** sequences = NULL
+        cdef ssize_t         index_    = index
 
         with self.lock.read:
             size = self.get_size()
@@ -591,10 +591,10 @@ cdef class Database(BaseDatabase):
 
     # --- Database interface ---------------------------------------------------
 
-    cdef digit_t** get_sequences(self) except NULL:
-        return self._pointers.data()
+    cdef const digit_t** get_sequences(self) except NULL:
+        return <const digit_t**> self._pointers.data()
 
-    cdef int* get_lengths(self) except NULL:
+    cdef const int* get_lengths(self) except NULL:
         return self._lengths.data()
 
     cdef size_t get_size(self) noexcept:
@@ -1233,7 +1233,9 @@ cdef class Aligner:
         *,
         str mode = "score",
         str overflow = "buckets",
-        str algorithm = "sw"
+        str algorithm = "sw",
+        uint32_t start = 0,
+        uint32_t end = UINT32_MAX,
     ):
         """Align the query sequence to all targets of the database.
 
@@ -1262,6 +1264,12 @@ cdef class Aligner:
                 for semi-global alignment without penalization of gaps on
                 query or target edges, and ``sw`` for local Smith-Waterman
                 alignment.
+            start (`int`): The start offset from which to start processing
+                the database. Useful for processing only a chunk of the 
+                database without copying the sequences.
+            end (`int`): The end offset until which to process the database. 
+                Useful for processing only a chunk of the database without 
+                copying the sequences.
 
         Returns:
             `list` of `pyopal.ScoreResult`: A list containing one
@@ -1280,25 +1288,6 @@ cdef class Aligner:
                 the SIMD backend.
 
         """
-        return self._align_slice(
-            query,
-            database,
-            mode=mode,
-            overflow=overflow,
-            algorithm=algorithm,
-        )
-
-    def _align_slice(
-        self,
-        object query not None,
-        BaseDatabase database not None,
-        *,
-        str mode = "score",
-        str overflow = "buckets",
-        str algorithm = "sw",
-        uint32_t start = 0,
-        uint32_t end = UINT32_MAX,
-    ):
         assert self.alphabet is not None
         assert self._search is not NULL
 
@@ -1315,8 +1304,8 @@ cdef class Aligner:
         cdef vector[OpalSearchResult*] results_raw
         cdef seq_t                     encoded
         cdef size_t                    size
-        cdef int*                      lengths     = NULL
-        cdef digit_t**                 sequences   = NULL
+        cdef const int*                lengths     = NULL
+        cdef const digit_t**           sequences   = NULL
         cdef int                       length      = len(query)
 
         # validate parameters
@@ -1367,11 +1356,11 @@ cdef class Aligner:
             if size > 0:
                 with nogil:
                     retcode = self._search(
-                        encoded.get(),
+                        <digit_t*> encoded.get(),
                         length,
-                        &sequences[start],
+                        <digit_t**> &sequences[start],
                         size,
-                        &lengths[start],
+                        <int*> &lengths[start],
                         self.gap_open,
                         self.gap_extend,
                         self.score_matrix._matrix.data(),

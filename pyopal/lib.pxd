@@ -90,9 +90,9 @@ cdef class BaseDatabase:
     cdef readonly SharedMutex      lock
     cdef readonly Alphabet         alphabet
 
-    cdef digit_t** get_sequences(self) except NULL
-    cdef int*      get_lengths(self) except NULL
-    cdef size_t    get_size(self) noexcept
+    cdef const digit_t** get_sequences(self) except NULL
+    cdef const int*      get_lengths(self) except NULL
+    cdef size_t          get_size(self) noexcept
 
     cdef digit_t* _encode(self, object sequence) except *
 
