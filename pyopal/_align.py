@@ -72,7 +72,7 @@ def align(
             alignment.
         threads (`int`): The number of threads to use for aligning
             sequences in parallel. If zero is given, uses the number
-            of threads reported by `os.cpu_count`. If one given, use
+            of CPUs reported by `os.cpu_count`. If one given, use
             the main threads for aligning, otherwise spawns a 
             `multiprocessing.pool.ThreadPool`.
         pool (`multiprocessing.pool.ThreadPool`): A running pool 

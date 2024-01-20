@@ -498,30 +498,6 @@ cdef class BaseDatabase:
                     total = accumulate(&lengths[0], &lengths[size], 0)
         return total
 
-    # --- Encoding -------------------------------------------------------------
-
-    cdef digit_t* _encode(self, object sequence) except *:
-        cdef bytes    encoded
-        cdef char*    indices
-        cdef digit_t* dst
-        cdef size_t   length  = len(sequence)
-
-        dst = <digit_t*> PyMem_Calloc(length, sizeof(digit_t))
-        if dst == nullptr:
-            raise MemoryError("Failed to allocate sequence data")
-
-        if SYS_IMPLEMENTATION_NAME == "cpython":
-            if isinstance(sequence, str):
-                sequence = sequence.encode('ascii')
-            view = PyMemoryView_FromMemory(<char*> dst, length * sizeof(digit_t), PyBUF_WRITE)
-            self.alphabet.encode_into(sequence, view)
-        else:
-            encoded = self.alphabet.encode(sequence)
-            indices = <char*> encoded
-            memcpy(<void*> &dst[0], <void*> indices, length * sizeof(digit_t))
-
-        return dst
-
     # --- Database interface ---------------------------------------------------
 
     cdef const digit_t** get_sequences(self) except NULL:
@@ -599,6 +575,30 @@ cdef class Database(BaseDatabase):
 
     cdef size_t get_size(self) noexcept:
         return self._pointers.size()
+
+    # --- Encoding utility -----------------------------------------------------
+
+    cdef digit_t* _encode(self, object sequence) except *:
+        cdef bytes    encoded
+        cdef char*    indices
+        cdef digit_t* dst
+        cdef size_t   length  = len(sequence)
+
+        dst = <digit_t*> PyMem_Calloc(length, sizeof(digit_t))
+        if dst == nullptr:
+            raise MemoryError("Failed to allocate sequence data")
+
+        if SYS_IMPLEMENTATION_NAME == "cpython":
+            if isinstance(sequence, str):
+                sequence = sequence.encode('ascii')
+            view = PyMemoryView_FromMemory(<char*> dst, length * sizeof(digit_t), PyBUF_WRITE)
+            self.alphabet.encode_into(sequence, view)
+        else:
+            encoded = self.alphabet.encode(sequence)
+            indices = <char*> encoded
+            memcpy(<void*> &dst[0], <void*> indices, length * sizeof(digit_t))
+
+        return dst
 
     # --- Sequence interface ---------------------------------------------------
 
@@ -1265,10 +1265,10 @@ cdef class Aligner:
                 query or target edges, and ``sw`` for local Smith-Waterman
                 alignment.
             start (`int`): The start offset from which to start processing
-                the database. Useful for processing only a chunk of the 
+                the database. Useful for processing only a chunk of the
                 database without copying the sequences.
-            end (`int`): The end offset until which to process the database. 
-                Useful for processing only a chunk of the database without 
+            end (`int`): The end offset until which to process the database.
+                Useful for processing only a chunk of the database without
                 copying the sequences.
 
         Returns:
@@ -1302,7 +1302,8 @@ cdef class Aligner:
         cdef type                      result_type
         cdef list                      results
         cdef vector[OpalSearchResult*] results_raw
-        cdef seq_t                     encoded
+        cdef bytes                     encoded
+        cdef digit_t*                  view
         cdef size_t                    size
         cdef const int*                lengths     = NULL
         cdef const digit_t**           sequences   = NULL
@@ -1328,7 +1329,8 @@ cdef class Aligner:
             raise ValueError("database and score matrix have different alphabets")
 
         # encode query
-        encoded = pyshared(database._encode(query))
+        encoded = database.alphabet.encode(query)
+        view = <digit_t*> PyBytes_AsString(encoded)
 
         # search database
         with database.lock.read:
@@ -1356,7 +1358,7 @@ cdef class Aligner:
             if size > 0:
                 with nogil:
                     retcode = self._search(
-                        <digit_t*> encoded.get(),
+                        view,
                         length,
                         <digit_t**> &sequences[start],
                         size,
