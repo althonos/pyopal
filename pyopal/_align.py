@@ -43,7 +43,7 @@ def align(
         query (`str` or byte-like object): The sequence to query the
             database with.
         database (iterable of `str` or byte-like objects): The database 
-            sequences to align the query to.
+            sequences to align the query to. 
         score_matrix (`~pyopal.ScoreMatrix`): The scoring matrix
             to use for the alignment.
 
@@ -78,7 +78,7 @@ def align(
         pool (`multiprocessing.pool.ThreadPool`): A running pool 
             instance to use for parallelization. Useful for reusing 
             the same pool across several calls of `~pyopal.align`. 
-            If `None` give, spawns a new pool based on the ``threads``
+            If `None` given, spawns a new pool based on the ``threads``
             argument.
 
     Yields:
@@ -87,6 +87,11 @@ def align(
         on the requested ``mode``: it will be `ScoreResult` for mode 
         ``score``, `EndResult` for mode ``end`` and `FullResult` for 
         mode ``full``.
+
+    Hint:
+        Consider storing the database sequences into a `~pyopal.Database` 
+        object if you are querying the same sequences more than once 
+        to avoid the overhead added by sequence encoding.
 
     Example:
         >>> targets = ["AACCGCTG", "ATGCGCT", "TTATTACG"]

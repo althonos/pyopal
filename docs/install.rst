@@ -3,11 +3,11 @@ Installation
 
 .. note::
 
-    Wheels are provided for x86-64 Linux, MacOS, and Window, as well
-    as Aarch64 and MacOS, but other machines will have to build the wheel
-    from the source distribution. Building ``pyopal`` involves compiling
-    Opal, which requires a C++ compiler with C++17 features to be available
-    on the local machine.
+    Wheels are provided for x86-64 Linux, MacOS, and Windows, as well
+    as Aarch64 Linux and MacOS, but other machines will have to build the 
+    wheel from the source distribution. Building ``pyopal`` involves 
+    compiling Opal, which requires a C++ compiler with C++17 features to 
+    be available on the local machine.
 
 
 PyPi

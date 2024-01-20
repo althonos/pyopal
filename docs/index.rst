@@ -76,7 +76,8 @@ internals, which has the following advantages:
 - **wider platform support**: The Opal code has been backported to work on SSE2
   rather than SSE4.1, allowing PyOpal to run on older x86 CPUs (all x86 CPUs
   support it since 2003). In addition, Armv7 and Aarch64 CPUs are also 
-  supported if they implement NEON extensions.
+  supported if they implement NEON extensions. Finally, the C++ code of Opal
+  has been modified to compile on Windows.
 
 
 Setup
