@@ -25,50 +25,13 @@ Classes
 
 .. only:: html
 
-    Alphabet
-    ^^^^^^^^
-
     .. autosummary::
         :nosignatures:
 
         pyopal.Alphabet
-
-
-    ScoreMatrix
-    ^^^^^^^^^^^
-
-    .. autosummary::
-        :nosignatures:
-
         pyopal.ScoreMatrix
-
-
-    Database
-    ^^^^^^^^
-
-    .. autosummary::
-        :nosignatures:
-
         pyopal.Database
-
-
-    Aligner
-    ^^^^^^^
-
-    .. autosummary::
-        :nosignatures:
-
         pyopal.Aligner
-
-
-    Results
-    ^^^^^^^
-
-    .. autosummary::
-       :nosignatures:
-
-       pyopal.ScoreResult
-       pyopal.EndResult
-       pyopal.FullResult
-
-
+        pyopal.ScoreResult
+        pyopal.EndResult
+        pyopal.FullResult

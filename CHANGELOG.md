@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## [v0.5.0] - 2024-01-20
-[Unreleased]: https://github.com/althonos/pyopal/compare/v0.4.2...v0.5.0
+[v0.5.0]: https://github.com/althonos/pyopal/compare/v0.4.2...v0.5.0
 
 ### Added
 - Support for compiling and running package on Windows.
