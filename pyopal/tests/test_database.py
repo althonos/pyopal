@@ -6,6 +6,17 @@ import pyopal
 
 class TestDatabase(unittest.TestCase):
 
+    def test_contains(self):
+        sequences = ["ATGC", "ATTTAC", "TTACCG"]
+        database = pyopal.Database(sequences)
+        self.assertIn("ATGC", database)
+        self.assertIn("ATTTAC", database)
+        self.assertIn("TTACCG", database)
+        self.assertNotIn("TAACCG", database)
+        self.assertNotIn("AAAA", database)
+        with self.assertRaises(TypeError):
+            _x = 1 in database
+
     def test_lengths(self):
         sequences = ["ATGC", "ATTC", "TTCG"]
         database = pyopal.Database(sequences)
