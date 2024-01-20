@@ -175,6 +175,9 @@ cdef class WriteLock:
 
 cdef class Alphabet:
     """A class for ordinal encoding of sequences.
+
+    .. versionadded:: 0.5.0
+
     """
 
     _DEFAULT_LETTERS = "ARNDCQEGHILKMFPSTWYVBZX*"
@@ -337,6 +340,9 @@ cdef class ScoreMatrix:
             Only ``BLOSUM50`` is configured to support unknown alphabet
             symbols.
 
+        .. versionchanged:: 0.5.0
+           Support for additional scoring matrices from Opal.
+
         """
         if not name in _SCORE_MATRICES:
             raise ValueError(f"unknown scoring matrix: {name!r}")
@@ -456,6 +462,8 @@ cdef class BaseDatabase:
             the sequences stored in the sequence database.
         lock (`~pyopal.lib.SharedMutex`): A read-write lock to synchronize
             the accesses to the database.
+
+    .. versionadded:: 0.5.0
 
     """
 
@@ -1196,6 +1204,9 @@ cdef class FullResult(EndResult):
 
 cdef class Aligner:
     """The Opal aligner.
+
+    .. versionadded:: 0.5.0
+
     """
 
     _DEFAULT_SCORE_MATRIX = ScoreMatrix.aa()

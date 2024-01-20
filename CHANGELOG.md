@@ -6,81 +6,48 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## [Unreleased]
-[Unreleased]: https://github.com/althonos/pyopal/compare/v0.5.0-a5...HEAD
+[Unreleased]: https://github.com/althonos/pyopal/compare/v0.5.0-rc1...HEAD
 
 
-## [v0.5.0-a5] - 2024-01-19
-[v0.5.0-a5]: https://github.com/althonos/pyopal/compare/v0.5.0-a4...v0.5.0-a5
-
-### Added
-- `Alphabet.__eq__` implementation comparing letters.
-- `pool` argument to `pyopal.align` to support reusing a `ThreadPool`.
-
-### Changed
-- Update `Aligner.align` to use the `BaseDatabase` Cython API.
-
-### Fixed
-- Memory leak in `Aligner.align` caused by faulty allocation of pointer array.
-- `__repr__` implementations of `Alphabet` and `FullResult`.
-- `Alphabet.__getitem__` reading past the letters buffer.
-
-
-## [v0.5.0-a4] - 2024-01-17
-[v0.5.0-a4]: https://github.com/althonos/pyopal/compare/v0.5.0-a3...v0.5.0-a4
+## [v0.5.0-rc1] - 2024-01-20
+[Unreleased]: https://github.com/althonos/pyopal/compare/v0.4.2...v0.5.0-rc1
 
 ### Added
+- Support for compiling and running package on Windows.
+- Support for Python 3.12.
+- `pyopal.Alphabet` class for handling sequence encoding outside of `ScoreMatrix`.
+- Additional score matrices using the data files from Opal.
 - `encode_into` and `decode_into` sans-io methods of `Alphabet`.
 - `Aligner` class to handle alignment of a query to a database.
 - `ScoreMatrix.__eq__` implementation.
 - `Database.lengths` property to get the lengths of all the sequences in a database without decoding them.
 - `pyopal.align` top-level function to handle multithreaded alignments.
-
-### Fixed
-- `FullResult.cigar` crashing on alignments starting with `X`.
-
-
-## [v0.5.0-a3] - 2024-01-15
-[v0.5.0-a3]: https://github.com/althonos/pyopal/compare/v0.5.0-a2...v0.5.0-a3
-
-### Added
-- Additional score matrices using the data files from Opal.
-
-### Changed
-- Avoid temporary data copy in `Database._encode`.
-- Move Cython and Opal headers inside package to allow Cython import in other extensions.
-- Make `Database` use mostly the pointer array to make the algorithms more generic over the storage class.
-- Make `MAX_ALPHABET_SIZE` a constant of `pyopal.lib` rather than a user-defined macro for compatibility in other extensions.
-
-### Fixed
-- `ScoreMatrix` buffer-protocol not returning a read-only buffer.
-- `Database.mask` accessing out-of-bound elements when building pointer array.
-- Broken detection of `PyInterpreterState_GetID` in `setup.py`.
-
-
-## [v0.5.0-a2] - 2024-01-12
-[v0.5.0-a2]: https://github.com/althonos/pyopal/compare/v0.5.0-a1...v0.5.0-a2
-
-### Added
-- `pyopal.Alphabet` class for handling sequence encoding outside of `ScoreMatrix`.
-
-### Changed
-- Make internal extension public as `pyopal.lib` submodule.
-
-
-## [v0.5.0-a1] - 2024-01-12
-[v0.5.0-a1]: https://github.com/althonos/pyopal/compare/v0.4.2...v0.5.0-a1
+- `Alphabet.__eq__` implementation comparing letters.
+- `pool` argument to `pyopal.align` to support reusing a `ThreadPool`.
 
 ### Changed
 - Store `Database` sequences using `shared_ptr` for fast slicing and extraction of a database subset.
 - Use templates to generate platform-specific Cython files.
+- Make internal extension public as `pyopal.lib` submodule.
+- Avoid temporary data copy in `Database._encode`.
+- Move Cython and Opal headers inside package to allow Cython import in other extensions.
+- Make `Database` use mostly the pointer array to make the algorithms more generic over the storage class.
+- Make `MAX_ALPHABET_SIZE` a constant of `pyopal.lib` rather than a user-defined macro for compatibility in other extensions.
+- Update `Aligner.align` to use the `BaseDatabase` Cython API.
 
 ### Fixed
 - SSE2 not being detected on x86-64, where it is mandatory.
 - Mark Opal search functions as `noexcept` in Cython to avoid exception checks.
+- `ScoreMatrix` buffer-protocol not returning a read-only buffer.
+- `Database.mask` accessing out-of-bound elements when building pointer array.
+- Broken detection of `PyInterpreterState_GetID` in `setup.py`.
+- `FullResult.cigar` crashing on alignments starting with `X`.
+- Memory leak in `Aligner.align` caused by faulty allocation of pointer array.
+- `__repr__` implementations of `Alphabet` and `FullResult`.
+- `Alphabet.__getitem__` reading past the letters buffer.
 
-### Added
-- Support for compiling and running package on Windows.
-- Support for Python 3.12.
+### Removed
+- `Database.search` method.
 
 
 ## [v0.4.2] - 2023-08-29

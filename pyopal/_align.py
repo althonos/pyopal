@@ -101,6 +101,8 @@ def align(
         31 ATGCGCT
         23 TTATTACG
 
+    .. versionadded:: 0.5.0
+
     """
     # derive default parameters
     if threads == 0:
