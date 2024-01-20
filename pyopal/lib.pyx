@@ -12,7 +12,7 @@ References:
 
 # --- C imports ----------------------------------------------------------------
 
-from libc.string cimport memset, memcpy
+from libc.string cimport memset, memcpy, memcmp
 from libc.stdint cimport uint32_t, UINT32_MAX
 from libc.limits cimport UCHAR_MAX
 from libcpp cimport bool
@@ -510,6 +510,28 @@ cdef class BaseDatabase:
         return 0
 
     # --- Sequence interface ---------------------------------------------------
+
+    def __contains__(self, object query):
+        cdef ssize_t  i
+        cdef size_t   query_length
+        cdef bytes    encoded
+        cdef digit_t* view
+
+        encoded = self.alphabet.encode(query)
+        query_length = len(encoded)
+        view = <digit_t*> PyBytes_AsString(encoded)
+
+        with self.lock.read:
+            size = self.get_size()
+            lengths = self.get_lengths()
+            sequences = self.get_sequences()
+
+            for i in range(size):
+                if lengths[i] == query_length:
+                    if memcmp( sequences[i], view, lengths[i] ) == 0:
+                        return True
+
+        return False
 
     def __len__(self):
         with self.lock.read:
