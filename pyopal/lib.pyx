@@ -764,7 +764,7 @@ cdef class Database(BaseDatabase):
         """Extract a subset of the database where the bitmask is `True`.
 
         Arguments:
-            bitmask (`collections.abc.Sequence` of `bool`): A sequence of
+            bitmask (iterable of `bool`): A sequence of
                 `bool` objects with the same length as the database.
 
         Raises:
@@ -778,22 +778,27 @@ cdef class Database(BaseDatabase):
         .. versionadded:: 0.3.0
 
         """
-        cdef ssize_t  i
         cdef int      length
         cdef seq_t    seq
         cdef Database subdb
-
-        if len(bitmask) != len(self):
-            raise IndexError(bitmask)
+        cdef ssize_t  i      = 0
+        cdef bool     b      = False
 
         subdb = Database.__new__(Database)
         subdb.alphabet = self.alphabet
 
-        for i, b in enumerate(bitmask):
-            if b:
-                subdb._sequences.push_back(self._sequences[i])
-                subdb._lengths.push_back(self._lengths[i])
-                subdb._pointers.push_back(self._sequences[i].get())
+        with self.lock.read:
+            size = self.get_size()
+            for b in bitmask:
+                if i >= size:
+                    raise IndexError(bitmask)
+                if b:
+                    subdb._sequences.push_back(self._sequences[i])
+                    subdb._lengths.push_back(self._lengths[i])
+                    subdb._pointers.push_back(self._sequences[i].get())
+                i += 1
+            if i < size:
+                raise IndexError(bitmask)
 
         return subdb
 
@@ -812,26 +817,32 @@ cdef class Database(BaseDatabase):
             >>> list(db.extract([2, 0]))
             ['KKKK', 'AAAA']
 
+        Caution:
+            Negative indexing is not supported.
+
         .. versionadded:: 0.3.0
 
         """
         cdef ssize_t  index
-        cdef int      length
         cdef seq_t    seq
         cdef Database subdb
+        cdef size_t   size
 
         subdb = Database.__new__(Database)
         subdb.alphabet = self.alphabet
-        subdb._sequences.reserve(len(indices))
-        subdb._pointers.reserve(len(indices))
-        subdb._lengths.reserve(len(indices))
 
-        for index in indices:
-            if index < 0 or index >= len(self):
-                raise IndexError(index)
-            subdb._sequences.push_back(self._sequences[index])
-            subdb._lengths.push_back(self._lengths[index])
-            subdb._pointers.push_back(self._sequences[index].get())
+        with self.lock.read:
+            size = self.get_size()
+            with nogil:
+                subdb._sequences.reserve(size)
+                subdb._pointers.reserve(size)
+                subdb._lengths.reserve(size)
+            for index in indices:
+                if index < 0 or index >= size:
+                    raise IndexError(index)
+                subdb._sequences.push_back(self._sequences[index])
+                subdb._lengths.push_back(self._lengths[index])
+                subdb._pointers.push_back(self._sequences[index].get())
 
         return subdb
 
