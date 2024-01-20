@@ -57,8 +57,9 @@ the lightweight Python package [`archspec`](https://pypi.org/project/archspec)
 for runtime CPU feature detection.
 
 It can be installed directly from [PyPI](https://pypi.org/project/pyopal/),
-which hosts some pre-built x86-64 and Aarch64 wheels for Linux, MacOS, and
-Windows, as well as the code required to compile from source with Cython:
+which hosts some pre-built x86-64 wheels for Linux, MacOS, and Windows,
+Aarch64 wheels for Linux and MacOS, as well as the code required to 
+compile from source with Cython:
 ```console
 $ pip install pyopal
 ```
