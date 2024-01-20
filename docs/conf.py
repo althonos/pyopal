@@ -23,6 +23,12 @@ import sys
 docssrc_dir = os.path.dirname(os.path.abspath(__file__))
 project_dir = os.path.dirname(docssrc_dir)
 
+# When building on ReadTheDocs, we can't provide a local version of the Cython
+# extensions, so we have to install the latest public version, and avoid
+# patching the PYTHONPATH with the local development folder
+if os.getenv("READTHEDOCS", "False") != "True":
+    sys.path.insert(0, project_dir)
+
 # -- Sphinx Setup ------------------------------------------------------------
 
 def setup(app):
@@ -77,8 +83,10 @@ extensions = [
     "sphinx.ext.todo",
     "sphinx.ext.extlinks",
     "sphinx_bootstrap_theme",
+    "sphinxcontrib.jquery",
     "recommonmark",
     "nbsphinx",
+    "IPython.sphinxext.ipython_console_highlighting",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
