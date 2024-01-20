@@ -3,11 +3,11 @@ Installation
 
 .. note::
 
-    Wheels are provided for x86-64 Linux and OSX, as well
-    as Linx Aarch64, but other machines will have to build the wheel from the
-    source distribution. Building ``pyopal`` involves compiling Opal,
-    which requires a C++ compiler with C++17 features to be available on the 
-    local machine.
+    Wheels are provided for x86-64 Linux, MacOS, and Window, as well
+    as Aarch64 and MacOS, but other machines will have to build the wheel
+    from the source distribution. Building ``pyopal`` involves compiling
+    Opal, which requires a C++ compiler with C++17 features to be available
+    on the local machine.
 
 
 PyPi
@@ -53,7 +53,7 @@ Steps to install on ArchLinux depend on your `AUR helper <https://wiki.archlinux
 Piwheels
 ^^^^^^^^
 
-PyOpal works on Raspberry Pi computers (with NEON vectorization enabled!), 
+PyOpal works on Raspberry Pi computers (with NEON vectorization enabled!),
 and pre-built wheels are compiled for `armv7l` platforms on piwheels.
 Run the following command to install these instead of compiling from source:
 
@@ -61,7 +61,7 @@ Run the following command to install these instead of compiling from source:
 
    $ pip3 install pyopal --extra-index-url https://www.piwheels.org/simple
 
-Check the `piwheels documentation <https://www.piwheels.org/faq.html>`_ for 
+Check the `piwheels documentation <https://www.piwheels.org/faq.html>`_ for
 more information.
 
 
