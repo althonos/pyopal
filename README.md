@@ -24,7 +24,8 @@
 [Opal](https://github.com/Martinsos/opal) is a sequence aligner enabling fast
 sequence similarity search using either of the Smith-Waterman, semi-global or
 Needleman-Wunsch algorithms. It is used part of the SW#db method[\[1\]](#ref1)
-to align a query sequence to multiple database sequences on CPU.
+to align a query sequence to multiple database sequences on CPU, using 
+the multi-sequence vectorization method described in SWIPE[\[2\]](#ref2)
 
 PyOpal is a Python module that provides bindings to [Opal](https://github.com/Martinsos/opal)
 using [Cython](https://cython.org/). It implements a user-friendly, Pythonic
@@ -51,8 +52,8 @@ following advantages:
 
 ## 🔧 Installing
 
-PyOpal is available for all modern versions (3.6+), depending either
-on the lightweight Python package [`archspec`](https://pypi.org/project/archspec)
+PyOpal is available for all modern versions (3.6+), optionally depending on
+the lightweight Python package [`archspec`](https://pypi.org/project/archspec)
 for runtime CPU feature detection.
 
 It can be installed directly from [PyPI](https://pypi.org/project/pyopal/),
@@ -184,3 +185,4 @@ the [Zeller team](https://github.com/zellerlab).*
 ## 📚 References
 
 - <a id="ref1">\[1\]</a> Korpar Matija, Martin Šošić, Dino Blažeka, Mile Šikić. SW#db: ‘GPU-Accelerated Exact Sequence Similarity Database Search’. PLoS One. 2015 Dec 31;10(12):e0145857. [doi:10.1371/journal.pone.0145857](https://doi.org/10.1371/journal.pone.0145857). [PMID:26719890](https://pubmed.ncbi.nlm.nih.gov/26719890). [PMC4699916](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4699916/).
+- <a id="ref2">\[2\]</a> Rognes Torbjørn. Faster Smith-Waterman database searches with inter-sequence SIMD parallelisation. BMC Bioinformatics. 2011 Jun 1;12:221. [doi:10.1186/1471-2105-12-221](https://doi.org/10.1186/1471-2105-12-221). [PMID:21631914](https://pubmed.ncbi.nlm.nih.gov/21631914/).[PMC3120707](http://www.ncbi.nlm.nih.gov/pmc/articles/pmc3120707/).
