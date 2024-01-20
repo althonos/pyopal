@@ -110,14 +110,13 @@ cdef dict _OPAL_ALIGNMENT_OPERATION = {
 
 # --- Runtime CPU detection ----------------------------------------------------
 
-if TARGET_SYSTEM == "windows":
-    import cpuinfo
-    _HOST_CPU = cpuinfo.get_cpu_info()
-    _HOST_FEATURES = _HOST_CPU["flags"]
-else:
+try:
     import archspec.cpu
     _HOST_CPU             = archspec.cpu.host()
     _HOST_FEATURES        = _HOST_CPU.features
+except ImportError:
+    _HOST_CPU             = None
+    _HOST_FEATURES        = set()
 
 _SSE2_BUILD_SUPPORT   = SSE2_BUILD_SUPPORT
 _SSE4_BUILD_SUPPORT   = SSE4_BUILD_SUPPORT

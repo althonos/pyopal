@@ -53,8 +53,7 @@ following advantages:
 
 PyOpal is available for all modern versions (3.6+), depending either
 on the lightweight Python package [`archspec`](https://pypi.org/project/archspec)
-or on [`py-cpuinfo`](https://pypi.org/project/archspec) for runtime CPU
-feature detection, depending on the operating system.
+for runtime CPU feature detection.
 
 It can be installed directly from [PyPI](https://pypi.org/project/pyopal/),
 which hosts some pre-built x86-64 and Aarch64 wheels for Linux, MacOS, and
