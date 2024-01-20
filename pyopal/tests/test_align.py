@@ -13,7 +13,7 @@ class TestAlignThreads(unittest.TestCase):
 
         query = "ACCTCG"
         target = ["AACCGCTG", "AACCGCTA", "AACCGCTC", "AACCGCTT"]
-        results = list(pyopal.align(query, target, threads=1, mode="full", algorithm="nw"))
+        results = list(pyopal.align(query, target, threads=1, mode="full", algorithm="nw", ordered=True))
         self.assertEqual(results[0].target_index, 0)
         self.assertEqual(results[0].target_start, 0)
         self.assertEqual(results[0].target_end, 7)
@@ -28,7 +28,7 @@ class TestAlignThreads(unittest.TestCase):
 
         query = "ACCTCG"
         target = ["AACCGCTG", "AACCGCTA", "AACCGCTC", "AACCGCTT"]
-        results = list(pyopal.align(query, target, threads=2, mode="full", algorithm="nw"))
+        results = list(pyopal.align(query, target, threads=2, mode="full", algorithm="nw", ordered=True))
         self.assertEqual(results[0].target_index, 0)
         self.assertEqual(results[0].target_start, 0)
         self.assertEqual(results[0].target_end, 7)

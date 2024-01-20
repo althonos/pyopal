@@ -35,7 +35,8 @@ def align(
     overflow = "buckets",
     algorithm = "sw",
     threads = 0,
-    pool = None
+    pool = None,
+    ordered = False,
 ):
     """Align the query sequence to every database sequence in parallel.
 
@@ -80,6 +81,11 @@ def align(
             the same pool across several calls of `~pyopal.align`. 
             If `None` given, spawns a new pool based on the ``threads``
             argument.
+        ordered (`bool`): Whether the results should be returned in
+            the same order as the database sequences. Internally
+            switches the code to use `ThreadPool.imap` instead of
+            `ThreadPool.imap_unordered`, which can have an impact
+            on performance.
 
     Yields:
         `~pyopal.ScoreResult`: Results for the alignment of the query
@@ -95,8 +101,8 @@ def align(
 
     Example:
         >>> targets = ["AACCGCTG", "ATGCGCT", "TTATTACG"]
-        >>> for result in pyopal.align("ACCTG", targets, gap_open=2):
-        ...     print(result.score, targets[result.target_index])
+        >>> for res in pyopal.align("ACCTG", targets, gap_open=2, ordered=True):
+        ...     print(res.score, targets[res.target_index])
         41 AACCGCTG
         31 ATGCGCT
         23 TTATTACG
@@ -128,7 +134,7 @@ def align(
             algorithm=algorithm
         )
     else:
-        # 
+        # create a pool if none given
         if pool is None:
             pool_context = multiprocessing.pool.ThreadPool(threads)
         else:
@@ -144,9 +150,15 @@ def align(
                 overflow=overflow, 
                 algorithm=algorithm
             )
-            chunk_hits = pool.imap(
-                lambda x: align(start=x, end=x + chunk_length),
-                range(0, len(database), chunk_length),    
-            )
+            if not ordered:
+                chunk_hits = pool.imap_unordered(
+                    lambda x: align(start=x, end=x + chunk_length),
+                    range(0, len(database), chunk_length),    
+                )
+            else:
+                chunk_hits = pool.imap(
+                    lambda x: align(start=x, end=x + chunk_length),
+                    range(0, len(database), chunk_length),    
+                )
             for hits in chunk_hits:
                 yield from hits
