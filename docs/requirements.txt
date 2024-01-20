@@ -18,3 +18,4 @@ https://github.com/althonos/sphinx-bootstrap-theme/archive/master.zip
 # dependencies to run the example notebook(s)
 biopython ==1.79
 ipykernel ~=5.3
+matplotlib
