@@ -1229,7 +1229,7 @@ cdef class Aligner:
             gap_extend (`int`): The gap extension penalty :math:`E`
                 for scoring the alignments.
 
-        Hit:
+        Hint:
             A gap of length :math:`N` will receive a penalty of
             :math:`E + (N - 1)G`.
 
