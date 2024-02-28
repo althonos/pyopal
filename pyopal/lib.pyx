@@ -507,10 +507,10 @@ cdef class BaseDatabase:
 
     # --- Database interface ---------------------------------------------------
 
-    cdef const digit_t** get_sequences(self) except NULL:
+    cdef const digit_t** get_sequences(self) except? NULL:
         raise NotImplementedError("BaseDatabase.get_sequences")
 
-    cdef const int* get_lengths(self) except NULL:
+    cdef const int* get_lengths(self) except? NULL:
         raise NotImplementedError("BaseDatabase.get_lengths")
 
     cdef size_t get_size(self) noexcept:
@@ -596,10 +596,10 @@ cdef class Database(BaseDatabase):
 
     # --- Database interface ---------------------------------------------------
 
-    cdef const digit_t** get_sequences(self) except NULL:
+    cdef const digit_t** get_sequences(self) except? NULL:
         return <const digit_t**> self._pointers.data()
 
-    cdef const int* get_lengths(self) except NULL:
+    cdef const int* get_lengths(self) except? NULL:
         return self._lengths.data()
 
     cdef size_t get_size(self) noexcept:
@@ -1339,15 +1339,15 @@ cdef class Aligner:
         cdef int                       _algo
         cdef size_t                    i
         cdef size_t                    j
-        cdef int                       retcode
         cdef ScoreResult               result
         cdef FullResult                full_result
         cdef type                      result_type
         cdef list                      results
         cdef vector[OpalSearchResult*] results_raw
         cdef bytes                     encoded
-        cdef digit_t*                  view
-        cdef size_t                    size
+        cdef digit_t*                  view        = NULL
+        cdef size_t                    size        = 0
+        cdef int                       retcode     = 0
         cdef const int*                lengths     = NULL
         cdef const digit_t**           sequences   = NULL
         cdef int                       length      = len(query)
