@@ -6,7 +6,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## [Unreleased]
-[Unreleased]: https://github.com/althonos/pyopal/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/althonos/pyopal/compare/v0.5.2...HEAD
+
+
+## [v0.5.2] - 2024-02-28
+[v0.5.2]: https://github.com/althonos/pyopal/compare/v0.5.1...v0.5.2
+
+### Fixed
+- Segmentation fault when attempting to align to an empty `Database` ([#6](https://github.com/althonos/pyopal/issues/6)).
 
 
 ## [v0.5.1] - 2024-01-21
