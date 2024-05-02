@@ -48,7 +48,7 @@ def _eprint(*args, **kwargs):
     print(*args, **kwargs, file=sys.stderr)
 
 
-def _patch_osx_compiler(compiler):
+def _patch_osx_compiler(compiler, machine):
     # On newer OSX, Python has been compiled as a universal binary, so
     # it will attempt to pass universal binary flags when building the
     # extension. This will not work because the code makes use of SSE2.
@@ -58,7 +58,7 @@ def _patch_osx_compiler(compiler):
             (
                 i
                 for i in range(1, len(flags))
-                if flags[i - 1] == "-arch" and flags[i] != platform.machine()
+                if flags[i - 1] == "-arch" and flags[i] != machine
             ),
             None,
         )
@@ -436,7 +436,7 @@ class build_ext(_build_ext):
 
         # remove universal compilation flags for OSX
         if platform.system() == "Darwin":
-            _patch_osx_compiler(self.compiler)
+            _patch_osx_compiler(self.compiler, self.target_machine)
 
         # generate score matrices
         if not self.distribution.have_run.get("build_matrices", False):
