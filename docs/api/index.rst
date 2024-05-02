@@ -17,7 +17,6 @@ Classes
    :hidden:
 
    alphabet <alphabet>
-   score_matrix <score_matrix>
    database <database>
    aligner <aligner>
    result <result>
@@ -29,7 +28,6 @@ Classes
         :nosignatures:
 
         pyopal.Alphabet
-        pyopal.ScoreMatrix
         pyopal.Database
         pyopal.Aligner
         pyopal.ScoreResult
