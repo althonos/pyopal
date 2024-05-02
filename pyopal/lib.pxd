@@ -17,6 +17,8 @@ from libcpp cimport bool, nullptr
 from libcpp.vector cimport vector
 from libcpp.memory cimport shared_ptr
 
+from scoring_matrices cimport ScoringMatrix
+
 from . cimport opal
 from .opal cimport OpalSearchResult
 from .shared_mutex cimport shared_mutex
@@ -129,8 +131,10 @@ cdef class FullResult(EndResult):
     cpdef float coverage(self, str reference=*)
 
 cdef class Aligner:
-    cdef readonly Alphabet    alphabet
-    cdef readonly ScoreMatrix score_matrix
-    cdef readonly int         gap_open
-    cdef readonly int         gap_extend
-    cdef          searchfn_t  _search
+    cdef readonly Alphabet      alphabet
+    cdef readonly ScoringMatrix scoring_matrix
+    cdef readonly int           gap_open
+    cdef readonly int           gap_extend
+    
+    cdef          searchfn_t    _search
+    cdef          int*          _int_matrix

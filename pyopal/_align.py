@@ -3,6 +3,8 @@ import functools
 import multiprocessing.pool
 import os
 
+from scoring_matrices import ScoringMatrix
+
 from .lib import (
     Aligner,
     BaseDatabase,
@@ -27,7 +29,7 @@ def nullcontext(enter_result):
 def align(
     query,
     database,
-    score_matrix = None,
+    scoring_matrix = None,
     *,
     gap_open = 3,
     gap_extend = 1,
@@ -45,8 +47,8 @@ def align(
             database with.
         database (iterable of `str` or byte-like objects): The database 
             sequences to align the query to. 
-        score_matrix (`~pyopal.ScoreMatrix`): The scoring matrix
-            to use for the alignment.
+        scoring_matrix (`scoring_matrices.ScoringMatrix`): The scoring 
+            matrix to use for the alignment.
 
     Keyword Arguments:
         gap_open(`int`): The gap opening penalty :math:`G` for
@@ -113,17 +115,17 @@ def align(
     # derive default parameters
     if threads == 0:
         threads = os.cpu_count() or 1
-    if score_matrix is None:
-        score_matrix = ScoreMatrix.aa()
+    if scoring_matrix is None:
+        scoring_matrix = Aligner._DEFAULT_SCORING_MATRIX
     if not isinstance(database, BaseDatabase):
-        database = Database(database, score_matrix.alphabet)
+        database = Database(database, scoring_matrix.alphabet)
 
     # avoid using more threads than necessary
     if threads > len(database):
         threads = len(database) or 1
 
     # align query to database
-    aligner = Aligner(score_matrix, gap_open=gap_open, gap_extend=gap_extend)
+    aligner = Aligner(scoring_matrix, gap_open=gap_open, gap_extend=gap_extend)
     if threads == 1:
         # use main thread if a single thread is needed
         yield from aligner.align(

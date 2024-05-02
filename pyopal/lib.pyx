@@ -12,6 +12,7 @@ References:
 
 # --- C imports ----------------------------------------------------------------
 
+from libc.stdlib cimport calloc, free
 from libc.string cimport memset, memcpy, memcmp
 from libc.stdint cimport uint32_t, UINT32_MAX
 from libc.limits cimport UCHAR_MAX
@@ -34,6 +35,8 @@ from cpython.unicode cimport (
     PyUnicode_GET_LENGTH,
     PyUnicode_1BYTE_KIND
 )
+
+from scoring_matrices cimport ScoringMatrix
 
 from . cimport opal
 from .opal cimport OpalSearchResult
@@ -73,7 +76,8 @@ from string import ascii_lowercase
 
 include "_version.py"
 include "_patch.pxi"
-include "matrices.pxi"
+
+cdef dict _SCORE_MATRICES = {}
 
 # --- Constants ----------------------------------------------------------------
 
@@ -474,8 +478,13 @@ cdef class BaseDatabase:
     def __cinit__(self):
         self.lock = SharedMutex()
 
-    def __init__(self, object sequences = (), Alphabet alphabet = None):
-        self.alphabet = self._DEFAULT_ALPHABET if alphabet is None else alphabet
+    def __init__(self, object sequences = (), object alphabet = None):
+        if alphabet is None:
+            self.alphabet = self._DEFAULT_ALPHABET
+        elif isinstance(alphabet, Alphabet):
+            self.alphabet = alphabet
+        else:
+            self.alphabet = Alphabet(alphabet)
         if sequences:
             raise TypeError("cannot create a `BaseDatabase` with sequences")
 
@@ -584,7 +593,7 @@ cdef class Database(BaseDatabase):
     def __cinit__(self):
         self._sequences.clear()
 
-    def __init__(self, object sequences=(), Alphabet alphabet = None):
+    def __init__(self, object sequences=(), object alphabet = None):
         super().__init__(alphabet=alphabet)
         # reset the collection if `__init__` is called more than once
         self.clear()
@@ -1209,20 +1218,26 @@ cdef class Aligner:
 
     """
 
-    _DEFAULT_SCORE_MATRIX = ScoreMatrix.aa()
+    _DEFAULT_SCORING_MATRIX = ScoringMatrix.from_name("BLOSUM50")
     _DEFAULT_GAP_OPEN = 3
     _DEFAULT_GAP_EXTEND = 1
 
+    def __cinit__(self):
+        self._int_matrix = NULL
+
+    def __dealloc__(self):
+        free(self._int_matrix)
+
     def __init__(
         self,
-        ScoreMatrix score_matrix = None,
+        ScoringMatrix scoring_matrix = None,
         int gap_open = _DEFAULT_GAP_OPEN,
         int gap_extend = _DEFAULT_GAP_EXTEND,
     ):
         """Create a new Aligner with the given parameters.
 
         Arguments:
-            score_matrix (`~pyopal.ScoreMatrix`): The score
+            scoring_matrix (`scoring_matrices.ScoringMatrix`): The score
                 matrix to use for scoring the alignments.
             gap_open(`int`): The gap opening penalty :math:`G` for
                 scoring the alignments.
@@ -1234,8 +1249,10 @@ cdef class Aligner:
             :math:`E + (N - 1)G`.
 
         """
-        self.score_matrix = score_matrix or self._DEFAULT_SCORE_MATRIX
-        self.alphabet = self.score_matrix.alphabet
+        cdef size_t i
+
+        self.scoring_matrix = scoring_matrix or self._DEFAULT_SCORING_MATRIX
+        self.alphabet = Alphabet(self.scoring_matrix.alphabet)
         self.gap_open = gap_open
         self.gap_extend = gap_extend
 
@@ -1251,10 +1268,19 @@ cdef class Aligner:
         if self._search is NULL:
             raise RuntimeError("no supported SIMD backend available")
 
+        # copy alignment weights
+        if not self.scoring_matrix.is_integer():
+            raise ValueError("Integer scoring matrix is expected")
+        self._int_matrix = <int*> calloc(self.scoring_matrix._nitems, sizeof(int))
+        if self._int_matrix == NULL:
+            raise MemoryError("Failed to allocate scoring matrix")
+        for i in range(self.scoring_matrix._nitems):
+            self._int_matrix[i] = <int> self.scoring_matrix._data[i]
+
     def __repr__(self):
         args = []
-        if self.score_matrix != self._DEFAULT_SCORE_MATRIX:
-            args.append(f"{self.score_matrix!r}")
+        if self.scoring_matrix != self._DEFAULT_SCORING_MATRIX:
+            args.append(f"{self.scoring_matrix!r}")
         if self.gap_open != self._DEFAULT_GAP_OPEN:
             args.append(f"gap_open={self.gap_open!r}")
         if self.gap_extend != self._DEFAULT_GAP_EXTEND:
@@ -1262,7 +1288,7 @@ cdef class Aligner:
         return f"{type(self).__name__}({', '.join(args)})"
 
     def __reduce__(self):
-        return type(self), (self.score_matrix, self.gap_open, self.gap_extend)
+        return type(self), (self.scoring_matrix, self.gap_open, self.gap_extend)
 
     def __eq__(self, object other):
         if not isinstance(other, Aligner):
@@ -1408,7 +1434,7 @@ cdef class Aligner:
                         <int*> &lengths[start],
                         self.gap_open,
                         self.gap_extend,
-                        self.score_matrix._matrix.data(),
+                        self._int_matrix,
                         self.alphabet.length,
                         results_raw.data(),
                         _mode,

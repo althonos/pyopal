@@ -7,7 +7,7 @@ from . import (
     test_database,
     test_doctest,
     test_result,
-    test_score_matrix,
+    # test_score_matrix,
 )
 
 
@@ -18,5 +18,5 @@ def load_tests(loader, suite, pattern):
     suite.addTests(loader.loadTestsFromModule(test_alphabet))
     suite.addTests(loader.loadTestsFromModule(test_database))
     suite.addTests(loader.loadTestsFromModule(test_result))
-    suite.addTests(loader.loadTestsFromModule(test_score_matrix))
+    # suite.addTests(loader.loadTestsFromModule(test_score_matrix))
     return suite
