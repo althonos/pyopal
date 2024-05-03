@@ -7,6 +7,4 @@ importlib-resources ; python_version < '3.7'
 biopython           ; implementation_name == 'cpython'
 archspec ~=0.2      ; os_name != 'nt'
 py-cpuinfo ~=9.0    ; os_name == 'nt'
-
-# scoring-matrices package
-git+https://github.com/althonos/scoring-matrices
+scoring-matrices ~=0.1
