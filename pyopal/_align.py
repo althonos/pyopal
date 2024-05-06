@@ -47,8 +47,10 @@ def align(
             database with.
         database (iterable of `str` or byte-like objects): The database 
             sequences to align the query to. 
-        scoring_matrix (`scoring_matrices.ScoringMatrix`): The scoring 
-            matrix to use for the alignment.
+        scoring_matrix (`~scoring_matrices.ScoringMatrix` or `str`): The 
+            scoring matrix to use for the alignment, either as a 
+            `ScoringMatrix` object, or as the name of a matrix to load
+            with the `ScoringMatrix.from_name` class method.
 
     Keyword Arguments:
         gap_open(`int`): The gap opening penalty :math:`G` for
@@ -117,6 +119,11 @@ def align(
         threads = os.cpu_count() or 1
     if scoring_matrix is None:
         scoring_matrix = Aligner._DEFAULT_SCORING_MATRIX
+    elif isinstance(scoring_matrix, str):
+        scoring_matrix = ScoringMatrix.from_name(scoring_matrix)
+    elif not isinstance(scoring_matrix, ScoringMatrix):
+        ty = type(scoring_matrix).__name__
+        raise TypeError(f"expected str or ScoringMatrix, got {ty}")
     if not isinstance(database, BaseDatabase):
         database = Database(database, scoring_matrix.alphabet)
 

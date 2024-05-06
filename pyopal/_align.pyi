@@ -4,6 +4,8 @@ import multiprocessing.pool
 import os
 import typing
 
+from scoring_matrices import ScoringMatrix
+
 try:
     from typing import Literal
 except ImportError:
@@ -33,7 +35,7 @@ def nullcontext(enter_result: T) -> typing.Iterator[T]: ...
 def align(
     query: typing.Union[str, bytes, bytearray],
     database: typing.Union[BaseDatabase, typing.Iterable[typing.Union[str, bytes, bytearray]]],
-    score_matrix: typing.Optional[ScoreMatrix] = None,
+    scoring_matrix: typing.Union[ScoringMatrix, str, None] = None,
     *,
     gap_open: int = 3,
     gap_extend: int = 1,

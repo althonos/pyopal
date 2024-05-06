@@ -1088,7 +1088,7 @@ cdef class Aligner:
 
     The `Aligner` implements an accelerated pipeline for computing pairwise
     alignments between a query sequence and a database of target sequences
-    in parallel, using [SIMD](https://en.wikipedia.org/wiki/Single_instruction,_multiple_data) 
+    in parallel, using [SIMD](https://en.wikipedia.org/wiki/Single_instruction,_multiple_data)
     capabilities of modern processors.
 
     Attributes:
@@ -1120,15 +1120,17 @@ cdef class Aligner:
 
     def __init__(
         self,
-        ScoringMatrix scoring_matrix = None,
+        object scoring_matrix = None,
         int gap_open = _DEFAULT_GAP_OPEN,
         int gap_extend = _DEFAULT_GAP_EXTEND,
     ):
         """Create a new Aligner with the given parameters.
 
         Arguments:
-            scoring_matrix (`~scoring_matrices.ScoringMatrix`): The scoring
-                matrix to use for scoring the alignments. The aligner
+            scoring_matrix (`~scoring_matrices.ScoringMatrix` or `str`): The
+                scoring matrix to use for scoring the alignments, either as
+                a `ScoringMatrix` object, or as the name of a matrix to load
+                with the `ScoringMatrix.from_name` class method. The aligner
                 will use the matrix columns to instantiate an `Alphabet`.
             gap_open(`int`): The gap opening penalty :math:`G` for
                 scoring the alignments.
@@ -1150,9 +1152,18 @@ cdef class Aligner:
         """
         cdef size_t       i
         cdef size_t       size
-        cdef const float* data 
+        cdef const float* data
 
-        self.scoring_matrix = scoring_matrix or self._DEFAULT_SCORING_MATRIX
+        if scoring_matrix is None:
+            self.scoring_matrix = self._DEFAULT_SCORING_MATRIX
+        elif isinstance(scoring_matrix, str):
+            self.scoring_matrix = ScoringMatrix.from_name(scoring_matrix)
+        elif isinstance(scoring_matrix, ScoringMatrix):
+            self.scoring_matrix = scoring_matrix
+        else:
+            ty = type(scoring_matrix).__name__
+            raise TypeError(f"expected str or ScoringMatrix, found {ty}")
+
         self.alphabet = Alphabet(self.scoring_matrix.alphabet)
         self.gap_open = gap_open
         self.gap_extend = gap_extend

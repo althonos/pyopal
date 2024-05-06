@@ -2,6 +2,23 @@ import random
 import unittest
 
 import pyopal
+from scoring_matrices import ScoringMatrix
+
+
+class TestAligner(unittest.TestCase):
+
+    def test_init_scoring_matrix_str(self):
+        matrix = ScoringMatrix.from_name("VTML80")
+        aligner = pyopal.Aligner("VTML80")
+        self.assertEqual(aligner.scoring_matrix, matrix)
+
+    def test_init_scoring_matrix_object(self):
+        matrix = ScoringMatrix.from_name("VTML80")
+        aligner = pyopal.Aligner(matrix)
+        self.assertEqual(aligner.scoring_matrix, matrix)
+
+    def test_init_scoring_matrix_error(self):
+        self.assertRaises(TypeError, pyopal.Aligner, 1)
 
 
 class _TestSearchOverflow(object):

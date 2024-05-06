@@ -1,6 +1,8 @@
 import sys
 import typing
 
+from scoring_matrices import ScoringMatrix
+
 try:
     from typing import Literal
 except ImportError:
@@ -25,20 +27,6 @@ class Alphabet(typing.Sequence[str]):
     def encode(self, sequence: typing.Union[bytes, bytearray, memoryview]) -> bytes: ...
     def decode(self, encoded: typing.Union[bytes, bytearray, memoryview]) -> str: ...
 
-class ScoreMatrix:
-    @classmethod
-    def aa(cls) -> ScoreMatrix: ...
-    def __init__(
-        self, 
-        alphabet: typing.Union[str, Alphabet], 
-        matrix: typing.Iterable[typing.Iterable[int]],
-    ) -> None: ...
-    def __repr__(self) -> str: ...
-    def __reduce__(self) -> typing.Tuple[object, ...]: ...
-    @property
-    def alphabet(self) -> Alphabet: ...
-    @property
-    def matrix(self) -> typing.List[typing.List[int]]: ...
 
 # --- Sequence storage ---------------------------------------------------------
 
@@ -125,13 +113,13 @@ class FullResult(EndResult):
 class Aligner:
     def __init__(
         self,
-        score_matrix: typing.Optional[ScoreMatrix] = None,
+        scoring_matrix: typing.Union[ScoringMatrix, str, None] = None,
         *,
         gap_open: int = 3,
         gap_extend: int = 10
     ) -> None: ...
     @property
-    def score_matrix(self) -> ScoreMatrix: ...
+    def scoring_matrix(self) -> ScoringMatrix: ...
     @property
     def alphabet(self) -> Alphabet: ...
     @property
