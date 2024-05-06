@@ -1121,7 +1121,9 @@ cdef class Aligner:
             :math:`E + (N - 1)G`.
 
         """
-        cdef size_t i
+        cdef size_t       i
+        cdef size_t       size
+        cdef const float* data 
 
         self.scoring_matrix = scoring_matrix or self._DEFAULT_SCORING_MATRIX
         self.alphabet = Alphabet(self.scoring_matrix.alphabet)
@@ -1143,11 +1145,14 @@ cdef class Aligner:
         # copy alignment weights
         if not self.scoring_matrix.is_integer():
             raise ValueError("Integer scoring matrix is expected")
-        self._int_matrix = <int*> calloc(self.scoring_matrix._nitems, sizeof(int))
-        if self._int_matrix == NULL:
-            raise MemoryError("Failed to allocate scoring matrix")
-        for i in range(self.scoring_matrix._nitems):
-            self._int_matrix[i] = <int> self.scoring_matrix._data[i]
+        with nogil:
+            size = self.scoring_matrix.size()
+            data = self.scoring_matrix.data_ptr()
+            self._int_matrix = <int*> calloc(size*size, sizeof(int))
+            if self._int_matrix == NULL:
+                raise MemoryError("Failed to allocate scoring matrix")
+            for i in range(size*size):
+                self._int_matrix[i] = <int> data[i]
 
     def __repr__(self):
         args = []
