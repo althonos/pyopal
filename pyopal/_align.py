@@ -9,7 +9,6 @@ from .lib import (
     Aligner,
     BaseDatabase,
     Database,
-    ScoreMatrix,
     ScoreResult,
     FullResult,
     EndResult,

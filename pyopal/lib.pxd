@@ -81,11 +81,6 @@ cdef class Alphabet:
     cpdef bytes encode(self, object sequence)
     cpdef str decode(self, object encoded)
 
-cdef class ScoreMatrix:
-    cdef vector[int]       _matrix
-    cdef Py_ssize_t        _shape[2]
-    cdef readonly Alphabet alphabet
-
 # --- Sequence storage ---------------------------------------------------------
 
 cdef class BaseDatabase:

@@ -15,7 +15,6 @@ from .lib import (
     Aligner,
     BaseDatabase,
     Database,
-    ScoreMatrix,
     ScoreResult,
     FullResult,
     EndResult,
@@ -50,7 +49,7 @@ def align(
 def align(
     query: typing.Union[str, bytes, bytearray],
     database: typing.Union[BaseDatabase, typing.Iterable[typing.Union[str, bytes, bytearray]]],
-    score_matrix: typing.Optional[ScoreMatrix] = None,
+    scoring_matrix: typing.Union[ScoringMatrix, str, None] = None,
     *,
     gap_open: int = 3,
     gap_extend: int = 1,
@@ -65,7 +64,7 @@ def align(
 def align(
     query: typing.Union[str, bytes, bytearray],
     database: typing.Union[BaseDatabase, typing.Iterable[typing.Union[str, bytes, bytearray]]],
-    score_matrix: typing.Optional[ScoreMatrix] = None,
+    scoring_matrix: typing.Union[ScoringMatrix, str, None] = None,
     *,
     gap_open: int = 3,
     gap_extend: int = 1,
