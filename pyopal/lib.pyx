@@ -1086,7 +1086,25 @@ cdef class FullResult(EndResult):
 cdef class Aligner:
     """The Opal aligner.
 
+    The `Aligner` implements an accelerated pipeline for computing pairwise
+    alignments between a query sequence and a database of target sequences
+    in parallel, using [SIMD](https://en.wikipedia.org/wiki/Single_instruction,_multiple_data) 
+    capabilities of modern processors.
+
+    Attributes:
+        scoring_matrix (`~scoring_matrices.ScoringMatrix`): The scoring
+            matrix to use for scoring the alignments.
+        alphabet (`~pyopal.Alphabet`): The alphabet for encoding sequences
+            before alignment.
+        gap_open(`int`): The gap opening penalty :math:`G` for
+            scoring the alignments.
+        gap_extend (`int`): The gap extension penalty :math:`E`
+            for scoring the alignments.
+
     .. versionadded:: 0.5.0
+
+    .. versionchanged:: 0.6.0
+       Use the external `ScoringMatrix` class to handle scoring matrices.
 
     """
 
@@ -1109,8 +1127,9 @@ cdef class Aligner:
         """Create a new Aligner with the given parameters.
 
         Arguments:
-            scoring_matrix (`scoring_matrices.ScoringMatrix`): The score
-                matrix to use for scoring the alignments.
+            scoring_matrix (`~scoring_matrices.ScoringMatrix`): The scoring
+                matrix to use for scoring the alignments. The aligner
+                will use the matrix columns to instantiate an `Alphabet`.
             gap_open(`int`): The gap opening penalty :math:`G` for
                 scoring the alignments.
             gap_extend (`int`): The gap extension penalty :math:`E`
@@ -1119,6 +1138,14 @@ cdef class Aligner:
         Hint:
             A gap of length :math:`N` will receive a penalty of
             :math:`E + (N - 1)G`.
+
+        Raises:
+            `ValueError`: When the given scoring matrix is not an integer
+                matrix.
+            `RuntimeError`: When no supported SIMD backend could be detected
+                on the host platform.
+            `MemoryError`: When some internal buffers could not be allocated
+                properly.
 
         """
         cdef size_t       i
