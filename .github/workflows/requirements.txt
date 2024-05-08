@@ -1,5 +1,6 @@
 coverage ~=6.0
 cython ~=3.0
+scoring-matrices ~=0.2
 wheel
 auditwheel
 setuptools >=46.4.0
@@ -7,4 +8,3 @@ importlib-resources ; python_version < '3.7'
 biopython           ; implementation_name == 'cpython'
 archspec ~=0.2      ; os_name != 'nt'
 py-cpuinfo ~=9.0    ; os_name == 'nt'
-scoring-matrices ~=0.1
