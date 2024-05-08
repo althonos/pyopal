@@ -77,8 +77,6 @@ from string import ascii_lowercase
 include "_version.py"
 include "_patch.pxi"
 
-cdef dict _SCORE_MATRICES = {}
-
 # --- Constants ----------------------------------------------------------------
 
 cdef dict _OPAL_SEARCH_MODES = {
@@ -1088,8 +1086,14 @@ cdef class Aligner:
 
     The `Aligner` implements an accelerated pipeline for computing pairwise
     alignments between a query sequence and a database of target sequences
-    in parallel, using [SIMD](https://en.wikipedia.org/wiki/Single_instruction,_multiple_data)
-    capabilities of modern processors.
+    in parallel, using :wiki:`Single instruction, multiple data` capacities
+    of modern processors.
+
+    Note:
+        The Opal algorithm requires scoring matrices to be integer
+        matrices, as all computations are handled with integer vectors.
+        Only matrices where the `~scoring_matrices.ScoringMatrix.is_integer`
+        returns `True` can be given to the `Aligner` constructor.
 
     Attributes:
         scoring_matrix (`~scoring_matrices.ScoringMatrix`): The scoring
