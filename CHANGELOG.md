@@ -6,7 +6,21 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## [Unreleased]
-[Unreleased]: https://github.com/althonos/pyopal/compare/v0.5.2...HEAD
+[Unreleased]: https://github.com/althonos/pyopal/compare/v0.6.0...HEAD
+
+
+## [v0.6.0] - 2024-05-08
+[v0.6.0]: https://github.com/althonos/pyopal/compare/v0.5.2...v0.6.0
+
+### Changed
+- Use `scoring-matrices` package to handle scoring matrices.
+- Import Cython classes from `pyopal.lib` in the main `pyopal` namespace.
+
+### Fixed
+- Patching of architecture flags of MacOS compilers.
+
+### Removed
+- The `ScoreMatrix` class from `pyopal.lib`.
 
 
 ## [v0.5.2] - 2024-02-28

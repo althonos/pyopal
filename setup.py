@@ -540,7 +540,6 @@ setuptools.setup(
                 os.path.join("vendor", "opal", "src", "opal.cpp"),
                 os.path.join("pyopal", "platform", "neon.pyx"),
             ],
-            
         ),
         ExtensionTemplate(
             "pyopal.platform.sse2",
