@@ -40,7 +40,7 @@ class Database(typing.MutableSequence[str], BaseDatabase):
     def __init__(
         self,
         sequences: typing.Iterable[typing.Union[str, bytes, bytearray]] = (),
-        alphabet: typing.Optional[Alphabet] = None,
+        alphabet: typing.Union[Alphabet, str, None] = None,
     ) -> None: ...
     @typing.overload
     def __getitem__(self, index: int) -> str: ...
