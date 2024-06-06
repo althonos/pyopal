@@ -6,7 +6,15 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## [Unreleased]
-[Unreleased]: https://github.com/althonos/pyopal/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/althonos/pyopal/compare/v0.6.1...HEAD
+
+
+## [v0.6.1] - 2024-06-06
+[v0.6.1]: https://github.com/althonos/pyopal/compare/v0.6.0...v0.6.1
+
+### Fixed
+- Import of `pyopal` on non-AVX2-enabled CPUs causing a crash ([#7](https://github.com/althonos/pyopal/issues/7)).
+- Type hints for `Database.__init__` not accepting `alphabet` as a Python string.
 
 
 ## [v0.6.0] - 2024-05-08
