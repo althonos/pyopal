@@ -533,7 +533,6 @@ setuptools.setup(
             define_macros=[("__ARM_NEON", 1)],
             include_dirs=["pyopal"],
             templates={
-                os.path.join("pyopal", "platform", "neon.pxd"): os.path.join("pyopal", "platform", "pxd.in"),
                 os.path.join("pyopal", "platform", "neon.pyx"): os.path.join("pyopal", "platform", "pyx.in"),
             },
             sources=[
@@ -548,7 +547,6 @@ setuptools.setup(
             define_macros=[("__SSE2__", 1)],
             include_dirs=["pyopal"],
             templates={
-                os.path.join("pyopal", "platform", "sse2.pxd"): os.path.join("pyopal", "platform", "pxd.in"),
                 os.path.join("pyopal", "platform", "sse2.pyx"): os.path.join("pyopal", "platform", "pyx.in"),
             },
             sources=[
@@ -563,7 +561,6 @@ setuptools.setup(
             define_macros=[("__SSE4_1__", 1)],
             include_dirs=["pyopal"],
             templates={
-                os.path.join("pyopal", "platform", "sse4.pxd"): os.path.join("pyopal", "platform", "pxd.in"),
                 os.path.join("pyopal", "platform", "sse4.pyx"): os.path.join("pyopal", "platform", "pyx.in"),
             },
             sources=[
@@ -578,7 +575,6 @@ setuptools.setup(
             include_dirs=["pyopal"],
             define_macros=[("__AVX2__", 1)],
             templates={
-                os.path.join("pyopal", "platform", "avx2.pxd"): os.path.join("pyopal", "platform", "pxd.in"),
                 os.path.join("pyopal", "platform", "avx2.pyx"): os.path.join("pyopal", "platform", "pyx.in"),
             },
             sources=[

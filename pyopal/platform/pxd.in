@@ -1,5 +1,0 @@
-# distutils: language = c++
-# cython: language_level=3, linetrace=True, embedsignature=True, binding=True
-
-from ..opal cimport OpalSearchResult
-
