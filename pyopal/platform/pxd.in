@@ -3,18 +3,3 @@
 
 from ..opal cimport OpalSearchResult
 
-cdef int opalSearchDatabase${SIMD}(
-    unsigned char query[], 
-    int queryLength, 
-    unsigned char* db[], 
-    int dbLength,
-    int dbSeqLengths[], 
-    int gapOpen, 
-    int gapExt, 
-    int* scoreMatrix,
-    int alphabetLength, 
-    OpalSearchResult* results[],
-    const int searchType, 
-    int mode, 
-    int overflowMethod
-) noexcept nogil

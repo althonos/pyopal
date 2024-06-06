@@ -131,5 +131,5 @@ cdef class Aligner:
     cdef readonly int           gap_open
     cdef readonly int           gap_extend
     
-    cdef          searchfn_t    _search
-    cdef          int*          _int_matrix
+    cdef readonly object        _search
+    cdef readonly object        _int_matrix

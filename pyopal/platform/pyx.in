@@ -1,39 +1,110 @@
 # distutils: language = c++
 # cython: language_level=3, linetrace=True, embedsignature=True, binding=True
 
+from libc.math cimport sqrtf
+from libc.stdint cimport uint32_t, UINT32_MAX
+from libcpp.vector cimport vector
+
+from cpython cimport Py_INCREF
+from cpython.list cimport PyList_New, PyList_SET_ITEM
+from cpython.bytes cimport PyBytes_AsString
+
 from .. cimport opal
+from ..lib cimport BaseDatabase, ScoreResult, EndResult, FullResult, digit_t
 
 include "../_version.py"
 include "../_patch.pxi"
 
-cdef int opalSearchDatabase${SIMD}(
-    unsigned char query[], 
-    int queryLength, 
-    unsigned char* db[], 
-    int dbLength,
-    int dbSeqLengths[], 
-    int gapOpen, 
-    int gapExt, 
-    int* scoreMatrix,
-    int alphabetLength, 
-    opal.OpalSearchResult* results[],
-    const int searchType, 
-    int mode, 
-    int overflowMethod
-) noexcept nogil:
-    return opal.opalSearchDatabase(
-        query,
-        queryLength, 
-        db, 
-        dbLength,
-        dbSeqLengths, 
-        gapOpen, 
-        gapExt, 
-        scoreMatrix,
-        alphabetLength, 
-        results,
-        searchType, 
-        mode, 
-        overflowMethod
-    )
+def search${SIMD}(
+    bytes encoded not None,
+    BaseDatabase database not None,
+    int mode,
+    int overflow,
+    int algorithm,
+    int gap_open,
+    int gap_extend,
+    int[:] int_matrix,
+    uint32_t start = 0,
+    uint32_t end = UINT32_MAX,
+):
+    cdef size_t                    i
+    cdef size_t                    j
+    cdef ScoreResult               result
+    cdef FullResult                full_result
+    cdef type                      result_type
+    cdef list                      results
+    cdef vector[OpalSearchResult*] results_raw
+    cdef digit_t*                  view        = NULL
+    cdef size_t                    size        = 0
+    cdef int                       retcode     = 0
+    cdef const int*                lengths     = NULL
+    cdef const digit_t**           sequences   = NULL
+    cdef int                       length      = len(encoded)
+    cdef int                       matrix_size = <int> sqrtf(int_matrix.shape[0])
 
+    # get the result type
+    if mode == opal.OPAL_SEARCH_SCORE:
+        result_type = ScoreResult
+    elif mode == opal.OPAL_SEARCH_SCORE_END:
+        result_type = EndResult
+    elif mode == opal.OPAL_SEARCH_ALIGNMENT:
+        result_type = FullResult
+    else:
+        raise ValueError("invalid search mode")
+
+    # view the query as a C string
+    view = <digit_t*> PyBytes_AsString(encoded)
+
+    # get pointers from database using `BaseDatabase` API
+    size = database.get_size()
+    sequences = database.get_sequences()
+    lengths = database.get_lengths()
+
+    # compute size of slice
+    size = 0 if end == 0 else end - start
+
+    # Prepare list of results
+    results_raw.reserve(size)
+    results = PyList_New(size)
+    for i, j in enumerate(range(start, end)):
+        result = result_type.__new__(result_type)
+        result._target_index = j
+        Py_INCREF(result)
+        PyList_SET_ITEM(results, i, result)
+        results_raw.push_back(&result._result)
+        
+    # Run search pipeline in nogil mode
+    if size > 0:
+        with nogil:
+            retcode = opal.opalSearchDatabase(
+                view,
+                length,
+                <digit_t**> &sequences[start],
+                size,
+                <int*> &lengths[start],
+                gap_open,
+                gap_extend,
+                &int_matrix[0],
+                matrix_size,
+                results_raw.data(),
+                mode,
+                algorithm,
+                overflow,
+            )
+
+        # record query and target lengths if in full mode so that
+        # the alignment coverage can be computed later
+        for i, j in enumerate(range(start, end)):
+            if mode == opal.OPAL_SEARCH_ALIGNMENT:
+                full_result = results[i]
+                full_result._query_length = length
+                full_result._target_length = lengths[j]
+
+    # check the alignment worked and return results
+    if retcode == opal.OPAL_ERR_NO_SIMD_SUPPORT:
+        raise RuntimeError("no supported SIMD backend available")
+    elif retcode == opal.OPAL_ERR_OVERFLOW:
+        raise OverflowError("overflow detected while computing alignment scores")
+    elif retcode != 0:
+        raise RuntimeError(f"failed to align to Opal database (code={retcode})")
+    return results

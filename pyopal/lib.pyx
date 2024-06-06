@@ -42,15 +42,6 @@ from . cimport opal
 from .opal cimport OpalSearchResult
 from .shared_mutex cimport shared_mutex
 
-if NEON_BUILD_SUPPORT:
-    from pyopal.platform.neon cimport opalSearchDatabaseNEON
-if SSE2_BUILD_SUPPORT:
-    from pyopal.platform.sse2 cimport opalSearchDatabaseSSE2
-if SSE4_BUILD_SUPPORT:
-    from pyopal.platform.sse4 cimport opalSearchDatabaseSSE4
-if AVX2_BUILD_SUPPORT:
-    from pyopal.platform.avx2 cimport opalSearchDatabaseAVX2
-
 cdef extern from "<cctype>" namespace "std" nogil:
     cdef int toupper(int ch)
     cdef int tolower(int ch)
@@ -71,6 +62,7 @@ cdef extern from * nogil:
 
 # --- Python imports -----------------------------------------------------------
 
+import array
 import operator
 from string import ascii_lowercase
 
@@ -1117,10 +1109,8 @@ cdef class Aligner:
     _DEFAULT_GAP_EXTEND = 1
 
     def __cinit__(self):
-        self._int_matrix = NULL
-
-    def __dealloc__(self):
-        free(self._int_matrix)
+        self._search = None
+        self._int_matrix = None
 
     def __init__(
         self,
@@ -1174,27 +1164,30 @@ cdef class Aligner:
 
         # Select the best available SIMD backend
         if SSE2_BUILD_SUPPORT and _SSE2_RUNTIME_SUPPORT:
-            self._search = opalSearchDatabaseSSE2
+            from .platform.sse2 import searchSSE2
+            self._search = searchSSE2
         if SSE4_BUILD_SUPPORT and _SSE4_RUNTIME_SUPPORT:
-            self._search = opalSearchDatabaseSSE4
+            from .platform.sse4 import searchSSE4
+            self._search = searchSSE4
         if AVX2_BUILD_SUPPORT and _AVX2_RUNTIME_SUPPORT:
-            self._search = opalSearchDatabaseAVX2
+            from .platform.avx2 import searchAVX2
+            self._search = searchAVX2
         if NEON_BUILD_SUPPORT and _NEON_RUNTIME_SUPPORT:
-            self._search = opalSearchDatabaseNEON
-        if self._search is NULL:
+            from .platform.neon import searchNEON
+            self._search = searchNEON
+        if self._search is None:
             raise RuntimeError("no supported SIMD backend available")
 
         # copy alignment weights
         if not self.scoring_matrix.is_integer():
             raise ValueError("Integer scoring matrix is expected")
-        with nogil:
-            size = self.scoring_matrix.size()
-            data = self.scoring_matrix.data_ptr()
-            self._int_matrix = <int*> calloc(size*size, sizeof(int))
-            if self._int_matrix == NULL:
-                raise MemoryError("Failed to allocate scoring matrix")
-            for i in range(size*size):
-                self._int_matrix[i] = <int> data[i]
+
+        # FIXME(@althonos): Use memoryview for copy
+        size = self.scoring_matrix.size()
+        data = self.scoring_matrix.data_ptr()
+        self._int_matrix = array.array('i')
+        for i in range(size*size):
+            self._int_matrix.append(<int> data[i])
 
     def __repr__(self):
         args = []
@@ -1277,7 +1270,7 @@ cdef class Aligner:
 
         """
         assert self.alphabet is not None
-        assert self._search is not NULL
+        assert self._search is not None
 
         cdef int                       _mode
         cdef int                       _overflow
@@ -1318,62 +1311,25 @@ cdef class Aligner:
 
         # encode query
         encoded = database.alphabet.encode(query)
-        view = <digit_t*> PyBytes_AsString(encoded)
 
         # search database
         with database.lock.read:
-            # get pointers from database using `BaseDatabase` API
             size = database.get_size()
-            sequences = database.get_sequences()
-            lengths = database.get_lengths()
             # check slice is valid
             if end < start:
                 raise IndexError("database slice end is lower than start")
             if end > size:
                 end = size
-            # compute size of slice
-            size = 0 if end == 0 else end - start
-            # Prepare list of results
-            results_raw.reserve(size)
-            results = PyList_New(size)
-            for i, j in enumerate(range(start, end)):
-                result = result_type.__new__(result_type)
-                result._target_index = j
-                Py_INCREF(result)
-                PyList_SET_ITEM(results, i, result)
-                results_raw.push_back(&result._result)
-            # Run search pipeline in nogil mode
-            if size > 0:
-                with nogil:
-                    retcode = self._search(
-                        view,
-                        length,
-                        <digit_t**> &sequences[start],
-                        size,
-                        <int*> &lengths[start],
-                        self.gap_open,
-                        self.gap_extend,
-                        self._int_matrix,
-                        self.alphabet.length,
-                        results_raw.data(),
-                        _mode,
-                        _algo,
-                        _overflow,
-                    )
 
-            # record query and target lengths if in full mode so that
-            # the alignment coverage can be computed later
-            for i, j in enumerate(range(start, end)):
-                if _mode == opal.OPAL_SEARCH_ALIGNMENT:
-                    full_result = results[i]
-                    full_result._query_length = length
-                    full_result._target_length = lengths[j]
-
-        # check the alignment worked and return results
-        if retcode == opal.OPAL_ERR_NO_SIMD_SUPPORT:
-            raise RuntimeError("no supported SIMD backend available")
-        elif retcode == opal.OPAL_ERR_OVERFLOW:
-            raise OverflowError("overflow detected while computing alignment scores")
-        elif retcode != 0:
-            raise RuntimeError(f"failed to align to Opal database (code={retcode})")
-        return results
+            return self._search(
+                encoded,
+                database,
+                _mode,
+                _overflow,
+                _algo,
+                self.gap_open,
+                self.gap_extend,
+                self._int_matrix,
+                start,
+                end,
+            )
