@@ -10,6 +10,7 @@ from cpython.list cimport PyList_New, PyList_SET_ITEM
 from cpython.bytes cimport PyBytes_AsString
 
 from .. cimport opal
+from ..opal cimport OpalSearchResult
 from ..lib cimport BaseDatabase, ScoreResult, EndResult, FullResult, digit_t
 
 include "../_version.py"
