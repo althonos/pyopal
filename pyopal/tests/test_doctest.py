@@ -77,7 +77,7 @@ def load_tests(loader, tests, ignore):
         )
         for (_, subpkgname, subispkg) in pkgutil.walk_packages(pkg.__path__):
             # do not import __main__ module to avoid side effects!
-            if subpkgname == "__main__" or subpkgname.startswith("tests"):
+            if subpkgname == "__main__" or subpkgname.startswith(("tests", "platform")):
                 continue
             # import the submodule and add it to the tests
             module = importlib.import_module(".".join([pkg.__name__, subpkgname]))
