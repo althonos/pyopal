@@ -177,6 +177,11 @@ cdef class Alphabet:
     _DEFAULT_LETTERS = "ARNDCQEGHILKMFPSTWYVBZX*"
 
     def __init__(self, str letters = _DEFAULT_LETTERS):
+        """__init__(self, letters="ARNDCQEGHILKMFPSTWYVBZX*")\n--\n
+
+        Create a new alphabet object.
+
+        """
         if len(letters) != len(set(letters)):
             raise ValueError("duplicate symbols in alphabet letters")
         if any(x != '*' and not x.isupper() for x in letters):
@@ -276,8 +281,8 @@ cdef class Alphabet:
 
         Raises:
             `ValueError`: When the sequence contains invalid characters, or
-            unknown sequence characters while the alphabet contains no
-            wildcard character.
+                unknown sequence characters while the alphabet contains no
+                wildcard character.
 
         Example:
             >>> alphabet = Alphabet("ACGT")
@@ -341,6 +346,11 @@ cdef class BaseDatabase:
         self.lock = SharedMutex()
 
     def __init__(self, object sequences = (), object alphabet = None):
+        """__init__(self, sequences=(), alphabet=None)\n--\n
+
+        Create a new base database with the given sequences.
+
+        """
         if alphabet is None:
             self.alphabet = self._DEFAULT_ALPHABET
         elif isinstance(alphabet, Alphabet):
@@ -456,6 +466,11 @@ cdef class Database(BaseDatabase):
         self._sequences.clear()
 
     def __init__(self, object sequences=(), object alphabet = None):
+        """__init__(self, sequences=(), alphabet=None)\n--\n
+
+        Create a new database with the given sequences.
+
+        """
         super().__init__(alphabet=alphabet)
         # reset the collection if `__init__` is called more than once
         self.clear()
@@ -767,6 +782,11 @@ cdef class ScoreResult:
         PyMem_Free(self._result.alignment)
 
     def __init__(self, size_t target_index, int score):
+        """__init__(self, target_index, score)\n--\n
+
+        Create a new score result.
+
+        """
         self._target_index = target_index
         self._result.score = score
         self._result.scoreSet = True
@@ -809,6 +829,11 @@ cdef class EndResult(ScoreResult):
         int query_end,
         int target_end,
     ):
+        """__init__(self, target_index, score, query_end, target_end)\n--\n
+
+        Create a new end result.
+
+        """
         super().__init__(target_index, score)
         self._result.endLocationQuery = query_end
         self._result.endLocationTarget = target_end
@@ -860,6 +885,11 @@ cdef class FullResult(EndResult):
         int target_length,
         str alignment not None,
     ):
+        """__init__(self, target_index, score, query_end, target_end, query_start, target_start, query_length, target_length, alignment)\n--\n
+
+        Create a new full result.
+
+        """
         super().__init__(target_index, score, query_end, target_end)
         self._query_length = query_length
         self._target_length = target_length
@@ -1118,7 +1148,9 @@ cdef class Aligner:
         int gap_open = _DEFAULT_GAP_OPEN,
         int gap_extend = _DEFAULT_GAP_EXTEND,
     ):
-        """Create a new Aligner with the given parameters.
+        """__init__(self, scoring_matrix=None, gap_open=3, gap_extend=1)\n--\n
+
+        Create a new Aligner with the given parameters.
 
         Arguments:
             scoring_matrix (`~scoring_matrices.ScoringMatrix` or `str`): The
