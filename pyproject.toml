@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "pyopal"
-version = "0.6.1"
+version = "0.7.0"
 description = "Cython bindings and Python interface to Opal, a SIMD-accelerated pairwise aligner."
 readme = "README.md"
 requires-python = ">=3.7"

@@ -6,7 +6,25 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## [Unreleased]
-[Unreleased]: https://github.com/althonos/pyopal/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/althonos/pyopal/compare/v0.7.0...HEAD
+
+
+## [v0.7.0] - 2024-11-04
+[v0.7.0]: https://github.com/althonos/pyopal/compare/v0.6.1...v0.7.0
+
+### Added
+- Support for Python 3.13.
+
+### Changed
+- Bump required `scoring-matrices` dependency to `v0.3.0`.
+- Reorganize project to build with CMake and `scikit-build-core`.
+- Update documentation to use the PyData theme.
+
+### Fixed
+- Signature of Cython classes constructors not displaying in documentation.
+
+### Removed
+- Support for Python 3.6.
 
 
 ## [v0.6.1] - 2024-06-06

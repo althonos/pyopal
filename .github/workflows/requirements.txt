@@ -2,4 +2,5 @@ coverage ~=7.0
 cython ~=3.0
 scoring-matrices ~=0.3.0
 scikit-build-core
+build
 archspec ~=0.2      ; os_name != 'nt'
