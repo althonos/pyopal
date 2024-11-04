@@ -74,6 +74,9 @@ build-verbosity = 1
 test-command = "python -m unittest pyopal.tests -v"
 free-threaded-support = false
 
+[tool.cibuildwheel.macos]
+environment = { MACOSX_DEPLOYMENT_TARGET = "10.12" }
+
 [tool.coverage.run]
 plugins = ["Cython.Coverage"]
 
