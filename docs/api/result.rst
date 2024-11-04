@@ -11,8 +11,8 @@ ScoreResult
    :members:
 
 
-ScoreResult
------------
+EndResult
+---------
 
 .. autoclass:: pyopal.EndResult(ScoreResult)
    :special-members: __init__
@@ -20,8 +20,8 @@ ScoreResult
    :members:
 
 
-ScoreResult
------------
+FullResult
+----------
 
 .. autoclass:: pyopal.FullResult(EndResult)
    :special-members: __init__

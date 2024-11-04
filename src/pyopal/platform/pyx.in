@@ -13,9 +13,6 @@ from .. cimport opal
 from ..opal cimport OpalSearchResult
 from ..lib cimport BaseDatabase, ScoreResult, EndResult, FullResult, digit_t
 
-include "../_version.py"
-include "../_patch.pxi"
-
 def search${SIMD}(
     bytes encoded not None,
     BaseDatabase database not None,

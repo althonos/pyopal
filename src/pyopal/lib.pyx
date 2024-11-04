@@ -36,7 +36,7 @@ from cpython.unicode cimport (
     PyUnicode_1BYTE_KIND
 )
 
-from scoring_matrices cimport ScoringMatrix
+from scoring_matrices.lib cimport ScoringMatrix
 
 from . cimport opal
 from .opal cimport OpalSearchResult
@@ -66,8 +66,7 @@ import array
 import operator
 from string import ascii_lowercase
 
-include "_version.py"
-include "_patch.pxi"
+__version__ = PROJECT_VERSION
 
 # --- Constants ----------------------------------------------------------------
 
@@ -123,7 +122,7 @@ _NEON_RUNTIME_SUPPORT = NEON_BUILD_SUPPORT and "neon" in _HOST_FEATURES
 
 # NOTE(@althonos): NEON is always supported on Aarch64 so we should only check
 #                  that the extension was built with NEON support.
-if TARGET_CPU == "aarch64":
+if TARGET_CPU == "aarch64" or TARGET_CPU == "arm64":
     _NEON_RUNTIME_SUPPORT = NEON_BUILD_SUPPORT
 
 # NOTE(@althonos): SSE2 is always supported on x86-64 so we should only check
