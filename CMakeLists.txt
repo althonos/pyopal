@@ -8,6 +8,8 @@ set(CMAKE_CXX_STANDARD 17)
 
 set_property(GLOBAL PROPERTY PYTHON_EXTENSIONS_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
+message(STATUS "Building ${SKBUILD_PROJECT_NAME} for ${CMAKE_SYSTEM_PROCESSOR}")
+
 # --- Detect C++ flags ---------------------------------------------------------
 
 include(CheckCXXCompilerFlag)
