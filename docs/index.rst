@@ -40,7 +40,7 @@ PyOpal |Stars|
    :target: https://github.com/althonos/pyopal/
 
 .. |Mirror| image:: https://img.shields.io/badge/mirror-EMBL-009f4d?style=flat-square&maxAge=2678400
-   :target: https://git.embl.de/larralde/pytrimapyopall/
+   :target: https://git.embl.de/larralde/pyopal/
 
 .. |Issues| image:: https://img.shields.io/github/issues/althonos/pyopal.svg?style=flat-square&maxAge=600
    :target: https://github.com/althonos/pyopal/issues
@@ -59,7 +59,7 @@ Overview
 --------
 
 PyOpal is a Python module that provides bindings to `Opal <https://github.com/Martinsos/opal>`_ 
-using `Cython <https://cython.org/>`_. It directly interacts with the trimAl
+using `Cython <https://cython.org/>`_. It directly interacts with the Opal
 internals, which has the following advantages:
 
 - **no binary dependency**: PyOpal is distributed as a Python package, so you
@@ -84,7 +84,7 @@ Setup
 -----
 
 Run ``pip install pyopal`` in a shell to download the latest release from PyPi, 
-or have a look at the :doc:`Installation page <install>` to find other ways 
+or have a look at the :doc:`Installation page <guide/install>` to find other ways 
 to install ``pyopal``.
 
 
@@ -94,11 +94,17 @@ Library
 .. toctree::
    :maxdepth: 2
 
-   Installation <install>
+   User Guide <guide/index>
    Examples <examples/index>
-   Contributing <contributing>
    API Reference <api/index>
-   Changelog <changes>
+
+
+Related Projects
+----------------
+
+The following Python libraries may be of interest for bioinformaticians.
+
+.. include:: related.rst
 
 
 License
@@ -106,7 +112,8 @@ License
 
 This library is provided under the `MIT License <https://choosealicense.com/licenses/mit/>`_.
 Opal was developed by `Martin Šošić <https://github.com/Martinsos>`_ and is distributed under the
-terms of the MIT License as well. 
+terms of the MIT License as well. See the :doc:`Copyright Notice <guide/copyright>` section
+for the full license.
 
 *This project is in no way not affiliated, sponsored, or otherwise endorsed by
 the original* `Opal`_ *authors. It was developed by* `Martin Larralde <https://github.com/althonos>`_ *during his

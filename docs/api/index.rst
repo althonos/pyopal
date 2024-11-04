@@ -16,10 +16,10 @@ Classes
 .. toctree::
    :hidden:
 
-   alphabet <alphabet>
-   database <database>
-   aligner <aligner>
-   result <result>
+   Alphabet <alphabet>
+   Database <database>
+   Aligner <aligner>
+   Result <result>
 
 
 .. only:: html
