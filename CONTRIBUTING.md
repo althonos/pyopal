@@ -20,21 +20,19 @@ the standard library. Running them requires the extension to be built
 locally:
 
 ```console
-$ python setup.py build_ext --debug --inplace
-$ python -m unittest discover -vv
+$ python -m pip install -e . -v --no-build-isolation
+$ python -m unittest pyopal.tests -vv
 ```
 
 ## Coding guidelines
 
-This project targets Python 3.5 or later.
+This project targets Python 3.7 or later.
 
 Python objects should be typed; since it is not supported by Cython,
 you must manually declare types in type stubs (`.pyi` files). In Python
 files, you can add type annotations to function signatures (supported in
-Python 3.5) but not in variable assignments (supported only from Python
-3.6 onward). However, Cython allows you to use
-[f-strings](https://www.python.org/dev/peps/pep-0498/)
-even when compiling the code for Python 3.5.
+Python 3.5) and in variable assignments (supported from Python
+3.6 onward). 
 
 ### Interfacing with C/C++
 
