@@ -1,6 +1,4 @@
 # noqa: D104
-from ._version import __version__
-
 __author__ = "Martin Larralde <martin.larralde@embl.de>"
 __license__ = "MIT"
 __all__ = [
@@ -17,6 +15,7 @@ __all__ = [
 from . import lib
 from ._align import align
 from .lib import (
+    __version__,
     Alphabet,
     Aligner,
     BaseDatabase,
