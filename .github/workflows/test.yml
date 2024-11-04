@@ -65,14 +65,14 @@ jobs:
       run: python -m pip install -e . -vv --no-build-isolation 
     - name: Test with coverage
       run: python -m coverage run -m unittest pyopal.tests -vv
-    - name: Upload to Codecov
-      if: matrix.python-impl == 'CPython'
-      uses: codecov/codecov-action@v3
-      with:
-        flags: ${{ matrix.python-impl }},${{ matrix.python-release }},${{ env.OS }}
-        name: test-python-${{ matrix.python-version }}
-        fail_ci_if_error: false
-        token: ${{ secrets.CODECOV_TOKEN }}
+    # - name: Upload to Codecov
+    #   if: matrix.python-impl == 'CPython'
+    #   uses: codecov/codecov-action@v3
+    #   with:
+    #     flags: ${{ matrix.python-impl }},${{ matrix.python-release }},${{ env.OS }}
+    #     name: test-python-${{ matrix.python-version }}
+    #     fail_ci_if_error: false
+    #     token: ${{ secrets.CODECOV_TOKEN }}
 
   test_osx:
     name: Test (OSX)
@@ -137,14 +137,14 @@ jobs:
       run: python -m pip install -e . -vv --no-build-isolation 
     - name: Test with coverage
       run: python -m coverage run -m unittest pyopal.tests -vv
-    - name: Upload to Codecov
-      if: matrix.python-impl == 'CPython'
-      uses: codecov/codecov-action@v3
-      with:
-        flags: ${{ matrix.python-impl }},${{ matrix.python-release }},${{ env.OS }}
-        name: test-python-${{ matrix.python-version }}
-        fail_ci_if_error: false
-        token: ${{ secrets.CODECOV_TOKEN }}
+    # - name: Upload to Codecov
+    #   if: matrix.python-impl == 'CPython'
+    #   uses: codecov/codecov-action@v3
+    #   with:
+    #     flags: ${{ matrix.python-impl }},${{ matrix.python-release }},${{ env.OS }}
+    #     name: test-python-${{ matrix.python-version }}
+    #     fail_ci_if_error: false
+    #     token: ${{ secrets.CODECOV_TOKEN }}
 
   test_windows:
     name: Test (Windows)
@@ -203,6 +203,6 @@ jobs:
     - name: Install Python requirements
       run: python -m pip install -r .github/workflows/requirements.txt
     - name: Build C extension
-      run: python -m pip install -e . -vv --no-build-isolation 
+      run: python -m pip install . -vv --no-build-isolation 
     - name: Test without coverage
       run: python -m unittest pyopal.tests -vv
