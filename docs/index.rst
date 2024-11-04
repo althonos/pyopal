@@ -62,22 +62,38 @@ PyOpal is a Python module that provides bindings to `Opal <https://github.com/Ma
 using `Cython <https://cython.org/>`_. It directly interacts with the Opal
 internals, which has the following advantages:
 
-- **no binary dependency**: PyOpal is distributed as a Python package, so you
-  can add it as a dependency to your project, and stop worrying about the
-  Opal binary being present on the end-user machine.
-- **no intermediate files**: Everything happens in memory, in a Python object
-  you control, so you don't have to invoke the Opal CLI using a sub-process
-  and temporary files.
-- **better portability**: Opal uses SIMD to accelerate alignment scoring, but
-  doesn't support dynamic dispatch, so it has to be compiled on the local
-  machine to be able to use the full capabilities of the local CPU. PyOpal
-  ships several versions of Opal instead, each compiled with different target
-  features, and selects the best one for the local platform at runtime.
-- **wider platform support**: The Opal code has been backported to work on SSE2
-  rather than SSE4.1, allowing PyOpal to run on older x86 CPUs (all x86 CPUs
-  support it since 2003). In addition, Armv7 and Aarch64 CPUs are also 
-  supported if they implement NEON extensions. Finally, the C++ code of Opal
-  has been modified to compile on Windows.
+.. grid:: 1 2 3 3
+   :gutter: 1
+
+   .. grid-item-card:: :fas:`battery-full` Batteries-included
+
+      Just add ``pyopal`` as a ``pip`` or ``conda`` dependency, no need
+      for the Opal binary or any external dependency.
+
+   .. grid-item-card:: :fas:`screwdriver-wrench` Flexible
+
+      Directly pass sequences to process as Python `str` objects, no 
+      need for intermediate files.
+
+   .. grid-item-card:: :fas:`dolly` Portable
+
+      Use the best available SIMD implementation for your current platform
+      without having to recompile Opal.
+
+   .. grid-item-card:: :fas:`computer` Wider support
+
+      The Opal code has been backported to work on SSE2 rather than SSE4.1, 
+      allowing PyOpal to run on older x86 CPUs (all x86 CPUs support it 
+      since 2003).
+
+   .. grid-item-card:: :fas:`microchip` Arm-compatible
+
+      Aarch64 CPUs (and Armv7 when they implement NEON extensions) are 
+      supported in addition to x86-64 in the original.
+
+   .. grid-item-card:: :fas:`arrow-pointer` Windows-compatible
+
+      The C++ code of Opal has been modified to compile on Windows.
 
 
 Setup
