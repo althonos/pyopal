@@ -68,11 +68,10 @@ if.env.MOLD = true
 cmake.define.CMAKE_LINKER_TYPE = "mold"
 
 [tool.cibuildwheel]
-before-build = "pip install scikit-build-core cython"
+before-build = "pip install scikit-build-core cython scoring-matrices"
 build-frontend = { name = "pip", args = ["--no-build-isolation"] }
 build-verbosity = 1
 test-command = "python -m unittest pyopal.tests -v"
-test-requires = "importlib-resources"
 free-threaded-support = false
 
 [tool.coverage.run]
