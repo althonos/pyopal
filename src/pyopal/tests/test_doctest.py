@@ -37,16 +37,6 @@ def load_tests(loader, tests, ignore):
     _current_cwd = os.getcwd()
     # demonstrate how to use Biopython substitution matrices without
     # actually requiring Biopython
-    Bio = mock.Mock()
-    Bio.Align = mock.Mock()
-    Bio.Align.substitution_matrices = mock.Mock()
-    Bio.Align.substitution_matrices.load = mock.Mock()
-    Bio.Align.substitution_matrices.load.return_value = jones = mock.Mock()
-    jones.alphabet = "ARNDCQEGHILKMFPSTWYV"
-    jones.__len__ = mock.Mock(return_value=len(jones.alphabet))
-    jones.__iter__ = mock.Mock(
-        return_value=iter([[0] * len(jones.alphabet)] * len(jones.alphabet))
-    )
 
     def setUp(self):
         warnings.simplefilter("ignore")
@@ -65,7 +55,7 @@ def load_tests(loader, tests, ignore):
     packages = [None, pyopal]
 
     for pkg in iter(packages.pop, None):
-        globs = dict(pyopal=pyopal, Bio=Bio, **pkg.__dict__)
+        globs = dict(pyopal=pyopal, **pkg.__dict__)
         tests.addTests(
             doctest.DocTestSuite(
                 pkg,
@@ -83,7 +73,7 @@ def load_tests(loader, tests, ignore):
             module = importlib.import_module(".".join([pkg.__name__, subpkgname]))
             if hasattr(module, "__test__"):
                 del module.__test__
-            globs = dict(pyopal=pyopal, Bio=Bio, **module.__dict__)
+            globs = dict(pyopal=pyopal, **module.__dict__)
             tests.addTests(
                 doctest.DocTestSuite(
                     module,
