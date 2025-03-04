@@ -12,7 +12,6 @@ license = { file = "COPYING" }
 authors = [
   { name = "Martin Larralde", email = "martin.larralde@embl.de" },
 ]
-platform = "any"
 keywords = ["bioinformatics", "pairwise", "sequence", "alignment", "opal"]
 classifiers = [
     "Development Status :: 4 - Beta",
