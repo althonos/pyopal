@@ -6,7 +6,16 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## [Unreleased]
-[Unreleased]: https://github.com/althonos/pyopal/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/althonos/pyopal/compare/v0.7.1...HEAD
+
+
+## [v0.7.1] - 2025-03-04
+[v0.7.1]: https://github.com/althonos/pyopal/compare/v0.7.0...v0.7.1
+
+### Fixed
+- Extra key in `pyproject.toml` causing build issues with version `0.11.0` of `scikit-build-core`.
+- Broken detection of default SSE2 support for x86-64 CPUs on Windows.
+- Missing `opal.h` file in Python site install to allow Cython imports.
 
 
 ## [v0.7.0] - 2024-11-04
