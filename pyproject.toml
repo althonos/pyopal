@@ -67,11 +67,14 @@ if.env.MOLD = true
 cmake.define.CMAKE_LINKER_TYPE = "mold"
 
 [tool.cibuildwheel]
+free-threaded-support = false
 before-build = "pip install scikit-build-core cython scoring-matrices"
 build-frontend = { name = "pip", args = ["--no-build-isolation"] }
 build-verbosity = 1
-test-command = "python -m unittest pyopal.tests -v"
-free-threaded-support = false
+test-command = [
+     "python -c 'import pyopal, pprint; pprint.pprint(pyopal.lib._cpu_info())'",
+     "python -m unittest pyopal.tests -v",
+]
 
 [tool.cibuildwheel.macos]
 environment = { MACOSX_DEPLOYMENT_TARGET = "10.12" }

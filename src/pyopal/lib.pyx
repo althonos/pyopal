@@ -130,6 +130,23 @@ if TARGET_CPU == "aarch64" or TARGET_CPU == "arm64":
 if TARGET_CPU == "x86_64" or TARGET_CPU == "amd64":
     _SSE2_RUNTIME_SUPPORT = SSE2_BUILD_SUPPORT
 
+def _cpu_info():
+    """Return information about build and runtime CPU features support.
+    """
+    return {
+        "simd" : {
+            "sse2": {"build": _SSE2_BUILD_SUPPORT, "runtime": _SSE2_RUNTIME_SUPPORT},
+            "sse4.1": {"build": _SSE4_BUILD_SUPPORT, "runtime": _SSE4_RUNTIME_SUPPORT},
+            "avx2": {"build": _AVX2_BUILD_SUPPORT, "runtime": _AVX2_RUNTIME_SUPPORT},
+            "neon": {"build": _NEON_BUILD_SUPPORT, "runtime": _NEON_RUNTIME_SUPPORT},
+        },
+        "cpu": {
+            "name": _HOST_CPU.name,
+            "family": _HOST_CPU.family.name,
+            "features": _HOST_CPU.features,
+        }
+    }
+
 
 # --- Exclusive read/write lock ------------------------------------------------
 
@@ -1194,16 +1211,16 @@ cdef class Aligner:
         self.gap_extend = gap_extend
 
         # Select the best available SIMD backend
-        if SSE2_BUILD_SUPPORT and _SSE2_RUNTIME_SUPPORT:
+        if _SSE2_RUNTIME_SUPPORT:
             from .platform.sse2 import searchSSE2
             self._search = searchSSE2
-        if SSE4_BUILD_SUPPORT and _SSE4_RUNTIME_SUPPORT:
+        if _SSE4_RUNTIME_SUPPORT:
             from .platform.sse4 import searchSSE4
             self._search = searchSSE4
-        if AVX2_BUILD_SUPPORT and _AVX2_RUNTIME_SUPPORT:
+        if _AVX2_RUNTIME_SUPPORT:
             from .platform.avx2 import searchAVX2
             self._search = searchAVX2
-        if NEON_BUILD_SUPPORT and _NEON_RUNTIME_SUPPORT:
+        if _NEON_RUNTIME_SUPPORT:
             from .platform.neon import searchNEON
             self._search = searchNEON
         if self._search is None:
