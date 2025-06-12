@@ -15,7 +15,7 @@ jobs:
       with:
         submodules: true
     - name: Build manylinux wheels
-      uses: pypa/cibuildwheel@v2.21.3
+      uses: pypa/cibuildwheel@v3.0.0
       env:
         CIBW_ARCHS: aarch64
         CIBW_BUILD: '*-manylinux_aarch64'
@@ -35,7 +35,7 @@ jobs:
       with:
         submodules: true
     - name: Build manylinux wheels
-      uses: pypa/cibuildwheel@v2.21.3
+      uses: pypa/cibuildwheel@v3.0.0
       env:
         CIBW_ARCHS: x86_64
         CIBW_BUILD: '*-manylinux_x86_64'
@@ -55,7 +55,7 @@ jobs:
       with:
         submodules: true
     - name: Build manylinux wheels
-      uses: pypa/cibuildwheel@v2.21.3
+      uses: pypa/cibuildwheel@v3.0.0
       env:
         CIBW_ARCHS: x86_64
         CIBW_BUILD: '*-macosx_x86_64'
@@ -75,7 +75,7 @@ jobs:
       with:
         submodules: true
     - name: Build manylinux wheels
-      uses: pypa/cibuildwheel@v2.21.3
+      uses: pypa/cibuildwheel@v3.0.0
       env:
         CIBW_ARCHS: arm64
         CIBW_BUILD: '*-macosx_arm64'
@@ -99,7 +99,7 @@ jobs:
       with:
         arch: amd64
     - name: Build manylinux wheels
-      uses: pypa/cibuildwheel@v2.21.3
+      uses: pypa/cibuildwheel@v3.0.0
       env:
         CIBW_ARCHS: AMD64
         CIBW_BUILD: '*-win_amd64'
@@ -119,10 +119,10 @@ jobs:
     - uses: actions/checkout@v4
       with:
         submodules: true
-    - name: Set up Python 3.12
+    - name: Set up Python 3.13
       uses: actions/setup-python@v5
       with:
-        python-version: 3.12
+        python-version: 3.13
     - name: Install build requirements
       run: python -m pip install -r .github/workflows/requirements.txt
     - name: Build source distribution
@@ -139,10 +139,10 @@ jobs:
     needs:
     - sdist
     steps:
-    - name: Setup Python 3.12
+    - name: Setup Python 3.13
       uses: actions/setup-python@v5
       with:
-        python-version: 3.12
+        python-version: 3.13
     - name: Download built wheels
       uses: actions/download-artifact@v4
       with:
