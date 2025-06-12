@@ -6,7 +6,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## [Unreleased]
-[Unreleased]: https://github.com/althonos/pyopal/compare/v0.7.1...HEAD
+[Unreleased]: https://github.com/althonos/pyopal/compare/v0.7.2...HEAD
+
+
+## [v0.7.2] - 2025-06-12
+[v0.7.2]: https://github.com/althonos/pyopal/compare/v0.7.1...v0.7.2
+
+### Fixed
+- Memory leak in `Aligner.align` when running in *buckets* overflow mode.
 
 
 ## [v0.7.1] - 2025-03-04

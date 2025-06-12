@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "pyopal"
-version = "0.7.1"
+version = "0.7.2"
 description = "Cython bindings and Python interface to Opal, a SIMD-accelerated pairwise aligner."
 readme = "README.md"
 requires-python = ">=3.7"
@@ -67,7 +67,6 @@ if.env.MOLD = true
 cmake.define.CMAKE_LINKER_TYPE = "mold"
 
 [tool.cibuildwheel]
-free-threaded-support = false
 before-build = "pip install scikit-build-core cython scoring-matrices"
 build-frontend = { name = "pip", args = ["--no-build-isolation"] }
 build-verbosity = 1
