@@ -6,7 +6,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## [Unreleased]
-[Unreleased]: https://github.com/althonos/pyopal/compare/v0.7.2...HEAD
+[Unreleased]: https://github.com/althonos/pyopal/compare/v0.7.3...HEAD
+
+
+## [v0.7.3] - 2025-08-07
+[v0.7.3]: https://github.com/althonos/pyopal/compare/v0.7.2...v0.7.3
+
+### Fixed
+- Memory missalocation in `opal` ([#8](https://github.com/althonos/pyopal/issues/8)).
 
 
 ## [v0.7.2] - 2025-06-12
