@@ -70,7 +70,7 @@ package:
 $ conda install -c bioconda pyopal
 ```
 
-Check the [*install* page](https://pyopal.readthedocs.io/en/stable/install.html)
+Check the [*install* page](https://pyopal.readthedocs.io/en/stable/guide/install.html)
 of the documentation for other ways to install PyOpal on your machine.
 
 ## 💡 Example
