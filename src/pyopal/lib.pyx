@@ -486,6 +486,13 @@ cdef class Database(BaseDatabase):
 
         Create a new database with the given sequences.
 
+        Example:
+            >>> # creating a database with a custom scoring matrix
+            >>> from scoring_matrices import ScoringMatrix
+            >>>
+            >>> alphabet = ScoringMatrix.from_name("VTML80").alphabet
+            >>> db = pyopal.Database(["ATGC", "TTCA"], alphabet=alphabet)
+           
         """
         super().__init__(alphabet=alphabet)
         # reset the collection if `__init__` is called more than once
