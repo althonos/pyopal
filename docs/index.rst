@@ -39,8 +39,8 @@ PyOpal |Stars|
 .. |Source| image:: https://img.shields.io/badge/source-GitHub-303030.svg?maxAge=2678400&style=flat-square
    :target: https://github.com/althonos/pyopal/
 
-.. |Mirror| image:: https://img.shields.io/badge/mirror-EMBL-009f4d?style=flat-square&maxAge=2678400
-   :target: https://git.embl.de/larralde/pyopal/
+.. |Mirror| image:: https://img.shields.io/badge/mirror-LUMC-darkblue?style=flat-square&maxAge=2678400
+   :target: https://git.lumc.ml/mflarralde/pyopal/
 
 .. |Issues| image:: https://img.shields.io/github/issues/althonos/pyopal.svg?style=flat-square&maxAge=600
    :target: https://github.com/althonos/pyopal/issues
