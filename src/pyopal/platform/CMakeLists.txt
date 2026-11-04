@@ -6,7 +6,7 @@ file(READ pyx.in TEMPLATE)
 set(AVX2_DEFINE_MACROS "-D__AVX2__")
 set(SSE2_DEFINE_MACROS "-D__SSE2__")
 set(SSE4_DEFINE_MACROS "-D__SSE4_1__")
-set(NEON_DEFINE_MACROS "-D__ARM_NEON__")
+set(NEON_DEFINE_MACROS "-D__ARM_NEON")
 
 foreach(_simd IN LISTS _PLATFORMS)
     string(TOUPPER ${_simd} SIMD)
