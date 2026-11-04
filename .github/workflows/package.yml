@@ -112,6 +112,32 @@ jobs:
         name: wheels-win_amd64
         path: dist/*
 
+  wheel-wasm:
+    name: Build WebAssembly wheel
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+    - name: Set up Python 3.13
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.13
+    - name: Install Pyodide
+      run: python -m pip install pyodide-build
+    - name: Build wheel
+      run: pyodide build .
+    - name: Create virtualenv
+      run: pyodide venv .venv-pyodide
+    - name: Install WebAssembly wheel
+      run: .venv-pyodide/bin/pip install dist/pyopal-*.whl
+    - name: Run tests
+      run: .venv-pyodide/bin/python -m unittest pyopal.tests -vv
+    - uses: actions/upload-artifact@v4
+      with:
+        name: wheels-wasm
+        path: dist/*
+
   sdist:
     runs-on: ubuntu-latest
     name: Build source distribution
@@ -169,6 +195,7 @@ jobs:
     - wheel-macos-aarch64
     - wheel-macos-x86_64
     - wheel-win32-x86_64
+    - wheel-wasm
     steps:
     - uses: actions/download-artifact@v4
       with:
