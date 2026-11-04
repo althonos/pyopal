@@ -19,8 +19,8 @@ set(PYSTATE_PATCH_H ${CMAKE_CURRENT_LIST_DIR}/pystate_patch.h)
 
 # --- Prepare Cython directives and constants ----------------------------------
 
-if(DEFINED CMAKE_C_COMPILER_TARGET)
-    set(TARGET_CPU ${CMAKE_C_COMPILER_TARGET})
+if(DEFINED CMAKE_CXX_COMPILER_TARGET)
+    set(TARGET_CPU ${CMAKE_CXX_COMPILER_TARGET})
 else()
     set(TARGET_CPU ${CMAKE_SYSTEM_PROCESSOR})
 endif()
