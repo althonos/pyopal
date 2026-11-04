@@ -6,7 +6,21 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 
 ## [Unreleased]
-[Unreleased]: https://github.com/althonos/pyopal/compare/v0.7.3...HEAD
+[Unreleased]: https://github.com/althonos/pyopal/compare/v0.7.4...HEAD
+
+
+## [v0.7.4] - 2026-11-05
+[v0.7.4]: https://github.com/althonos/pyopal/compare/v0.7.3...v0.7.4
+
+### Added
+- Support for WebAssembly platforms using Pyodide and Emscripten.
+
+### Changed
+- Compile and distribute ABI3 wheels with Python Limited API 3.11.
+
+### Fixed
+- Compilation error in Opal due to missing `return` statement.
+- Linetrace being enabled by default even in release builds.
 
 
 ## [v0.7.3] - 2025-08-07
