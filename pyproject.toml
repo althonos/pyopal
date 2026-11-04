@@ -52,9 +52,14 @@ dependencies = [
 build-dir = "build/{build_type}"
 editable.rebuild = true
 editable.verbose = false
+wheel.py-api = "cp311"
 
 [[tool.scikit-build.overrides]]
 if.state = "editable"
+cmake.build-type = "Debug"
+
+[[tool.scikit-build.overrides]]
+if.env.READTHEDOCS = "True"
 cmake.build-type = "Debug"
 
 [[tool.scikit-build-overrides]]

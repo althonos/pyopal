@@ -6,7 +6,7 @@ from libc.stdint cimport uint32_t, UINT32_MAX
 from libcpp.vector cimport vector
 
 from cpython cimport Py_INCREF
-from cpython.list cimport PyList_New, PyList_SET_ITEM
+from cpython.list cimport PyList_New, PyList_SetItem
 from cpython.bytes cimport PyBytes_AsString
 
 from .. cimport opal
@@ -67,8 +67,7 @@ def search${SIMD}(
     for i, j in enumerate(range(start, end)):
         result = result_type.__new__(result_type)
         result._target_index = j
-        Py_INCREF(result)
-        PyList_SET_ITEM(results, i, result)
+        PyList_SetItem(results, i, result)
         results_raw.push_back(&result._result)
         
     # Run search pipeline in nogil mode
