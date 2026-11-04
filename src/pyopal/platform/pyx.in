@@ -63,11 +63,11 @@ def search${SIMD}(
 
     # Prepare list of results
     results_raw.reserve(size)
-    results = PyList_New(size)
+    results = []
     for i, j in enumerate(range(start, end)):
         result = result_type.__new__(result_type)
         result._target_index = j
-        PyList_SetItem(results, i, result)
+        results.append(result)
         results_raw.push_back(&result._result)
         
     # Run search pipeline in nogil mode
