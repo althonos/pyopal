@@ -130,6 +130,11 @@ if TARGET_CPU == "aarch64" or TARGET_CPU == "arm64":
 if TARGET_CPU == "x86_64" or TARGET_CPU == "amd64":
     _SSE2_RUNTIME_SUPPORT = SSE2_BUILD_SUPPORT
 
+# NOTE(@althonos): NEON is always supported on Emscripten as a compatibility
+#                  layer to native WASM simd128 vectors.
+if TARGET_SYSTEM == "emscripten":
+    _NEON_RUNTIME_SUPPORT = NEON_BUILD_SUPPORT 
+
 def _cpu_info():
     """Return information about build and runtime CPU features support.
     """
