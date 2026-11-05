@@ -132,8 +132,11 @@ if TARGET_CPU == "x86_64" or TARGET_CPU == "amd64":
 
 # NOTE(@althonos): NEON is always supported on Emscripten as a compatibility
 #                  layer to native WASM simd128 vectors.
-if TARGET_SYSTEM == "emscripten":
+if TARGET_CPU.startswith("wasm"):
     _NEON_RUNTIME_SUPPORT = NEON_BUILD_SUPPORT 
+    _SSE2_RUNTIME_SUPPORT   = False
+    _SSE4_RUNTIME_SUPPORT   = False
+    _AVX2_RUNTIME_SUPPORT   = False
 
 def _cpu_info():
     """Return information about build and runtime CPU features support.
