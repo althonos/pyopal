@@ -134,6 +134,15 @@ if TARGET_CPU == "x86_64" or TARGET_CPU == "amd64":
 #                  layer to native WASM simd128 vectors.
 if TARGET_SYSTEM == "emscripten":
     _NEON_RUNTIME_SUPPORT = NEON_BUILD_SUPPORT 
+    _SSE2_RUNTIME_SUPPORT   = False
+    _SSE4_RUNTIME_SUPPORT   = False
+    _AVX2_RUNTIME_SUPPORT   = False
+
+# NOTE(@althonos): In case the runtime detection fails on M-series MacOS, we
+#                  revert to the build-time feature detection for at least SSE2.
+if TARGET_SYSTEM == "darwin" and TARGET_CPU.startswith("arm"):
+    _SSE2_RUNTIME_SUPPORT = SSE2_BUILD_SUPPORT
+    _SSE4_RUNTIME_SUPPORT = SSE4_BUILD_SUPPORT
 
 def _cpu_info():
     """Return information about build and runtime CPU features support.
