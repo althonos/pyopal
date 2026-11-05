@@ -1,7 +1,11 @@
 import contextlib
 import functools
-import multiprocessing.pool
 import os
+
+try:
+    import multiprocessing.pool
+except ImportError as err:
+    multiprocessing = err
 
 from scoring_matrices import ScoringMatrix
 
@@ -125,6 +129,10 @@ def align(
         raise TypeError(f"expected str or ScoringMatrix, got {ty}")
     if not isinstance(database, BaseDatabase):
         database = Database(database, scoring_matrix.alphabet)
+
+    # disable multithreading if unavailable
+    if isinstance(multiprocessing, ImportError):
+        threads = 1
 
     # avoid using more threads than necessary
     if threads > len(database):

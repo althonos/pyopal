@@ -1,3 +1,4 @@
+import platform
 import random
 import unittest
 
@@ -21,6 +22,7 @@ class TestAlignThreads(unittest.TestCase):
         self.assertEqual(results[0].query_end, 5)
         self.assertEqual(results[0].score, 44)
 
+    @unittest.skipIf(platform.system() == "Emscripten", "cannot use multithreading with Emscripten")
     def test_2(self):
         # #0: 44 (0, 0) (5, 7)
         # T: AACCGCTG (0 - 7)
